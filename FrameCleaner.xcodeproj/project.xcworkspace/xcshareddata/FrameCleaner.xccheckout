@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>IDESourceControlProjectFavoriteDictionaryKey</key>
+	<false/>
+	<key>IDESourceControlProjectIdentifier</key>
+	<string>F8043BE8-CCB5-49BA-843C-76D615FC0A14</string>
+	<key>IDESourceControlProjectName</key>
+	<string>FrameCleaner</string>
+	<key>IDESourceControlProjectOriginsDictionary</key>
+	<dict>
+		<key>ED5B740E-D1A2-4B04-B06A-BEC2CC234083</key>
+		<string>https://dev.smallplanet.com/svn/_tools/FrameCleaner/trunk</string>
+	</dict>
+	<key>IDESourceControlProjectPath</key>
+	<string>FrameCleaner.xcodeproj/project.xcworkspace</string>
+	<key>IDESourceControlProjectRelativeInstallPathDictionary</key>
+	<dict>
+		<key>ED5B740E-D1A2-4B04-B06A-BEC2CC234083</key>
+		<string>../..</string>
+	</dict>
+	<key>IDESourceControlProjectRepositoryRootDictionary</key>
+	<dict>
+		<key>ED5B740E-D1A2-4B04-B06A-BEC2CC234083</key>
+		<string>https://dev.smallplanet.com/svn</string>
+	</dict>
+	<key>IDESourceControlProjectURL</key>
+	<string>https://dev.smallplanet.com/svn/_tools/FrameCleaner/trunk/FrameCleaner.xcodeproj</string>
+	<key>IDESourceControlProjectVersion</key>
+	<integer>110</integer>
+	<key>IDESourceControlProjectWCCIdentifier</key>
+	<string>ED5B740E-D1A2-4B04-B06A-BEC2CC234083</string>
+	<key>IDESourceControlProjectWCConfigurations</key>
+	<array>
+		<dict>
+			<key>IDESourceControlRepositoryExtensionIdentifierKey</key>
+			<string>public.vcs.subversion</string>
+			<key>IDESourceControlWCCIdentifierKey</key>
+			<string>ED5B740E-D1A2-4B04-B06A-BEC2CC234083</string>
+			<key>IDESourceControlWCCName</key>
+			<string>FrameCleaner</string>
+		</dict>
+	</array>
+</dict>
+</plist>
