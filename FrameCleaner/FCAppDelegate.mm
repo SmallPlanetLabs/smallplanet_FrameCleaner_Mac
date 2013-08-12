@@ -793,7 +793,13 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
     NSInteger numberOfPoints;
 }
 - (CGRect) bounds;
-- (CGRect) boundsIntersecting:(CGRect)rect;
+- (CGRect) unionWithBounds:(CGRect)rect;
+- (CGFloat) unionAreaWithBounds:(CGRect)rect;
+- (BOOL) containsPoint:(CGPoint)point withInset:(CGFloat)inset;
+- (CGFloat) areaWithPoint:(CGPoint)point;
+- (CGFloat) maxSideWithPoint:(CGPoint)point;
+- (void) setBounds:(CGRect)_bounds;
+- (void) mergeWithRegion:(FCRegion *)region;
 @end
 
 @implementation FCRegion
@@ -812,6 +818,26 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
 - (BOOL) containsPoint:(CGPoint)point withInset:(CGFloat)inset
 {
     return (CGRectContainsPoint(CGRectInset(bounds,inset,inset), point));
+}
+
+- (CGFloat) areaWithPoint:(CGPoint)point
+{
+    CGRect pointRect = CGRectZero;
+    pointRect.origin = point;
+    pointRect.size = CGSizeMake(1.f,1.f);
+
+    CGRect newBounds = (CGRectIsNull(bounds) ? pointRect : CGRectUnion(bounds, pointRect));
+    return newBounds.size.width * newBounds.size.height;
+}
+
+- (CGFloat) maxSideWithPoint:(CGPoint)point
+{
+    CGRect pointRect = CGRectZero;
+    pointRect.origin = point;
+    pointRect.size = CGSizeMake(1.f,1.f);
+    
+    CGRect newBounds = (CGRectIsNull(bounds) ? pointRect : CGRectUnion(bounds, pointRect));
+    return (newBounds.size.width > newBounds.size.height ? newBounds.size.width : newBounds.size.height);
 }
 
 - (void) addPoint:(CGPoint)point
@@ -834,9 +860,31 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
     return bounds;
 }
 
+- (void) setBounds:(CGRect)_bounds;
+{
+    bounds = _bounds;
+}
+
 - (NSInteger) numberOfPoints
 {
     return numberOfPoints;
+}
+
+- (CGRect) unionWithBounds:(CGRect)rect
+{
+    return CGRectUnion(bounds, bounds);
+}
+
+- (CGFloat) unionAreaWithBounds:(CGRect)rect
+{
+    CGRect total = CGRectUnion(bounds, rect);
+    return total.size.width * total.size.height;
+}
+
+- (void) mergeWithRegion:(FCRegion *)region
+{
+    bounds = CGRectUnion(bounds, [region bounds]);
+    numberOfPoints += [region numberOfPoints];
 }
 
 @end
@@ -864,6 +912,8 @@ int convertDecimalToBaseN(int a, int n)
 #define SUBREGION_THRESHOLD 1
 #define SUBREGION_INSET -1
 #define MIN_POINTS_PER_SUBREGION 3
+#define AREA_THRESHOLD 1000
+#define EDGE_THRESHOLD 50
 
 - (NSMutableArray *) computeMaxSubregions:(NSUInteger)max fromData:(NSData *)data ofSize:(CGSize)size
 {
@@ -885,7 +935,7 @@ int convertDecimalToBaseN(int a, int n)
                 CGPoint point = CGPointMake(1.f*c,1.f*(size.height - r - 1));
                 for (FCRegion *region in subregions)
                 {
-                    if ([region containsPoint:point withInset:SUBREGION_INSET])
+                    if ([region containsPoint:point withInset:SUBREGION_INSET] && [region maxSideWithPoint:point] < EDGE_THRESHOLD)
                     {
                         [region addPoint:point];
                         match = YES;
@@ -906,6 +956,7 @@ int convertDecimalToBaseN(int a, int n)
     
     NSString *magick = @"\n\n";
     NSMutableSet *set = [NSMutableSet setWithArray:subregions];
+    
     for (FCRegion *region in subregions)
     {
         if ([region numberOfPoints] < MIN_POINTS_PER_SUBREGION)
@@ -927,11 +978,44 @@ int convertDecimalToBaseN(int a, int n)
             }
         }
     }
+    
     for (FCRegion *region in [set allObjects])
     {
         CGRect bounds = [region bounds];
         NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
         magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
+    }
+    
+    int reduce = [set count]-max;
+    for (int c=0; c<reduce; c++)
+    {
+        NSArray *allObjects = [set allObjects];
+        CGFloat minArea = -1;
+        FCRegion *min1=nil, *min2=nil;
+        for (FCRegion *r1 in allObjects)
+        {
+            for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
+            {
+                FCRegion *r2 = [allObjects objectAtIndex:compare];
+                CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
+//                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
+                if (comboArea < minArea || minArea < 0)
+                {
+                    minArea = comboArea;
+                    min1 = r1;
+                    min2 = r2;
+                }
+            }
+        }
+        [min1 mergeWithRegion:min2];
+        [set removeObject:min2];
+    }
+    
+    for (FCRegion *region in [set allObjects])
+    {
+        CGRect bounds = [region bounds];
+        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
+        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#0000dd88' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
     }
     NSLog(@"%@",magick);
     
