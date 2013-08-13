@@ -1157,16 +1157,18 @@ int convertDecimalToBaseN(int a, int n)
             imageBounds.size.width = 1024/maxSize * imgSize.width;
             imageBounds.size.height = 1024/maxSize * imgSize.height;
         }
-        
+        imageBounds.size.height +=20;
         NSWindow *win = [[NSWindow alloc] initWithContentRect:imageBounds
                                                     styleMask:(NSTitledWindowMask|NSClosableWindowMask|NSResizableWindowMask)
                                                       backing:NSBackingStoreBuffered
                                                         defer:NO];
-        NSImageView *imageView = [[NSImageView alloc] initWithFrame:win.frame];
+        imageBounds.size.height -=20;
+        NSImageView *imageView = [[NSImageView alloc] initWithFrame:imageBounds];
         NSImage *image = [[NSImage alloc ] initByReferencingFile:firstImage.sourceFile];
         imageView.image = image;
 
         [win.contentView addSubview:imageView];
+        NSLog(@"contentView frame: %f", [win.contentView frame].size.height);
         
 
         [FCImage dumpData:subregionData size:[firstImage size]];
