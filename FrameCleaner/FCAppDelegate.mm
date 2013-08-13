@@ -965,7 +965,6 @@ int convertDecimalToBaseN(int a, int n)
 {
     NSMutableArray *subregions = [NSMutableArray arrayWithCapacity:max];
     unsigned char *ptr = (unsigned char*)[data bytes];
-    NSLog(@"data length = %ld", (unsigned long)[data length]);
 
     for (int r=0; r<size.height; r++)
     {
@@ -974,10 +973,6 @@ int convertDecimalToBaseN(int a, int n)
             
             if (abs(*ptr) + abs(*(ptr+1)) + abs(*(ptr+2)) + abs(*(ptr+3)) > SUBREGION_THRESHOLD)
             {
-                if (c<5) {
-                    printf("%5d %5d  ==>  %5d %5d %5d\n", c, r, *ptr, *(ptr+1), *(ptr+2));
-                }
-                BOOL match = NO;
                 CGPoint point = CGPointMake(1.f*c,1.f*(size.height - r - 1));
                 CGFloat minArea = -1;
                 FCRegion *minRegion = nil;
@@ -992,13 +987,12 @@ int convertDecimalToBaseN(int a, int n)
                             minArea = newArea;
                         }
                     }
-                    if (minArea > 0)
-                    {
-                        [minRegion addPoint:point];
-                        match = YES;
-                    }
                 }
-                if (!match)
+                if (minArea > 0)
+                {
+                    [minRegion addPoint:point];
+                }
+                else
                 {
                     FCRegion *region = [[FCRegion alloc] init];
                     [region addPoint:point];
@@ -1035,12 +1029,6 @@ int convertDecimalToBaseN(int a, int n)
         }
     }
     
-    for (FCRegion *region in [set allObjects])
-    {
-        CGRect bounds = [region bounds];
-        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
-        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
-    }
     
     int reduce = [set count]-max;
     int loopmax = [set count]-1;
@@ -1048,8 +1036,6 @@ int convertDecimalToBaseN(int a, int n)
     {
         NSMutableArray *allObjects = [[set allObjects] mutableCopy];
         [allObjects shuffle];
-        CGFloat minArea = -1;
-        FCRegion *min1=nil, *min2=nil;
         for (FCRegion *r1 in allObjects)
         {
             for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
@@ -1061,13 +1047,20 @@ int convertDecimalToBaseN(int a, int n)
                 if (sumArea > comboArea)
                 {
                     [r1 mergeWithRegion:r2];
-                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
+//                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
                     [set removeObject:r2];
                 }
             }
         }
     }
     
+    for (FCRegion *region in [set allObjects])
+    {
+        CGRect bounds = [region bounds];
+        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
+        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
+    }
+
     reduce = [set count]-max;
     loopmax = [set count]-1;
     for (int c=0; c<loopmax; c++)
@@ -1093,16 +1086,40 @@ int convertDecimalToBaseN(int a, int n)
         }
         if (min1 && min2)
         {
-            NSLog(@"MIN merging %@ and %@", min1, min2);
+//            NSLog(@"MIN merging %@ and %@", min1, min2);
             [min1 mergeWithRegion:min2];
             [set removeObject:min2];
         }
     }
-    
+
+    reduce = [set count]-max;
+    loopmax = [set count]-1;
+    for (int c=0; c<loopmax; c++)
+    {
+        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+        [allObjects shuffle];
+        for (FCRegion *r1 in allObjects)
+        {
+            for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
+            {
+                FCRegion *r2 = [allObjects objectAtIndex:compare];
+                CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
+                //                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
+                CGFloat sumArea = [r1 area] + [r2 area];
+                if (sumArea > comboArea)
+                {
+                    [r1 mergeWithRegion:r2];
+//                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
+                    [set removeObject:r2];
+                }
+            }
+        }
+    }
+
     for (FCRegion *region in [set allObjects])
     {
         CGRect bounds = [region bounds];
-        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
+//        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
         magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#0000dd88' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
     }
     NSLog(@"%@",magick);
@@ -1247,7 +1264,7 @@ int convertDecimalToBaseN(int a, int n)
         }
         imageBounds.size.height +=20;
         NSWindow *win = [[NSWindow alloc] initWithContentRect:imageBounds
-                                                    styleMask:(NSTitledWindowMask|NSClosableWindowMask|NSResizableWindowMask)
+                                                    styleMask:(NSTitledWindowMask|NSClosableWindowMask)
                                                       backing:NSBackingStoreBuffered
                                                         defer:NO];
         imageBounds.size.height -=20;
@@ -1256,17 +1273,19 @@ int convertDecimalToBaseN(int a, int n)
         imageView.image = image;
 
         [win.contentView addSubview:imageView];
-        NSLog(@"contentView frame: %f", [win.contentView frame].size.height);
+//        NSLog(@"contentView frame: %f", [win.contentView frame].size.height);
         
 
         [FCImage dumpData:subregionData size:[firstImage size]];
         subregions = [self computeMaxSubregions:findSubregionsMax fromData:subregionData ofSize:[firstImage size]];
         
-        
+        CGFloat totalArea = 0.f;
         for (FCRegion *region in subregions)
         {
+            totalArea += [region area];
             CGRect rbounds = [region bounds];
             CGFloat scale = imgSize.height / imageBounds.size.height;
+            scale = (scale < 1.f ? scale : 1.f/scale);
             NSRect vbounds = NSMakeRect(rbounds.origin.x*scale, rbounds.origin.y*scale, rbounds.size.width*scale, rbounds.size.height*scale);
             NSView *view = [[NSView alloc] initWithFrame:vbounds];
             CALayer *viewLayer = [CALayer layer];
@@ -1274,8 +1293,9 @@ int convertDecimalToBaseN(int a, int n)
             [view setWantsLayer:YES];
             [view setLayer:viewLayer];
             [imageView addSubview:view];
+            NSLog(@"drawing box: %@ <== %@", NSStringFromRect(vbounds), NSStringFromRect(NSRectFromCGRect(rbounds)));
         }
-        
+        NSLog(@"total area %.0f px^2 from %d regions", totalArea, [subregions count]);
         [[NSApplication sharedApplication] runModalForWindow:win];
 
     }
