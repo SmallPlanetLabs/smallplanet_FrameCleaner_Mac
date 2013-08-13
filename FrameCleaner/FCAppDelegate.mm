@@ -841,6 +841,7 @@ static NSUInteger random_below(NSUInteger n) {
 - (CGFloat) maxSideWithPoint:(CGPoint)point;
 - (void) setBounds:(CGRect)_bounds;
 - (void) mergeWithRegion:(FCRegion *)region;
+- (void) reduceIfOverlaps:(FCRegion *)region;
 @end
 
 @implementation FCRegion
@@ -931,6 +932,51 @@ static NSUInteger random_below(NSUInteger n) {
 {
     bounds = CGRectUnion(bounds, [region bounds]);
     numberOfPoints += [region numberOfPoints];
+}
+
+- (BOOL) overlaps:(FCRegion *)region
+{
+    CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+    CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
+    CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
+    CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+    
+    if (CGRectContainsPoint([region bounds], p1) && CGRectContainsPoint([region bounds], p2)) return YES;
+    if (CGRectContainsPoint([region bounds], p2) && CGRectContainsPoint([region bounds], p3)) return YES;
+    if (CGRectContainsPoint([region bounds], p3) && CGRectContainsPoint([region bounds], p4)) return YES;
+    if (CGRectContainsPoint([region bounds], p4) && CGRectContainsPoint([region bounds], p1)) return YES;
+    return NO;
+}
+
+- (void) reduceIfOverlaps:(FCRegion *)region
+{
+    CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+    CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
+    CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
+    CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+    
+    if (CGRectContainsPoint([region bounds], p1) && CGRectContainsPoint([region bounds], p2))
+    {
+        CGFloat diff = CGRectGetMaxX([region bounds]) - CGRectGetMinX(bounds);
+        bounds.origin.x += diff;
+        bounds.size.width -= diff;
+    }
+    if (CGRectContainsPoint([region bounds], p2) && CGRectContainsPoint([region bounds], p3))
+    {
+        CGFloat diff = CGRectGetMaxY(bounds) - CGRectGetMinY([region bounds]);
+        bounds.size.height -= diff;
+    }
+    if (CGRectContainsPoint([region bounds], p3) && CGRectContainsPoint([region bounds], p4))
+    {
+        CGFloat diff = CGRectGetMaxX(bounds) - CGRectGetMinX([region bounds]);
+        bounds.size.width -= diff;
+    }
+    if (CGRectContainsPoint([region bounds], p4) && CGRectContainsPoint([region bounds], p1))
+    {
+        CGFloat diff = CGRectGetMaxY([region bounds]) - CGRectGetMinY(bounds);
+        bounds.origin.y += diff;
+        bounds.size.height -= diff;
+    }
 }
 
 @end
@@ -1109,13 +1155,33 @@ int convertDecimalToBaseN(int a, int n)
                 if (sumArea > comboArea)
                 {
                     [r1 mergeWithRegion:r2];
-//                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
+                    //                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
                     [set removeObject:r2];
                 }
             }
         }
     }
-
+    
+    // try to reduce area by looking for overlapping intersections
+    reduce = [set count]-max;
+    loopmax = [set count]-1;
+    for (int c=0; c<loopmax; c++)
+    {
+        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+        [allObjects shuffle];
+        for (FCRegion *r1 in allObjects)
+        {
+            for (int compare=0; compare < [allObjects count]; compare++)
+            {
+                FCRegion *r2 = [allObjects objectAtIndex:compare];
+                if (r1 != r2)
+                {
+                    [r1 reduceIfOverlaps:r2];
+                }
+            }
+        }
+    }
+    
     for (FCRegion *region in [set allObjects])
     {
         CGRect bounds = [region bounds];
@@ -1296,6 +1362,7 @@ int convertDecimalToBaseN(int a, int n)
             NSLog(@"drawing box: %@ <== %@", NSStringFromRect(vbounds), NSStringFromRect(NSRectFromCGRect(rbounds)));
         }
         NSLog(@"total area %.0f px^2 from %d regions", totalArea, [subregions count]);
+        [win setTitle:[NSString stringWithFormat:@"%.0f sqpx in %d regions", totalArea, [subregions count]]];
         [[NSApplication sharedApplication] runModalForWindow:win];
 
     }
