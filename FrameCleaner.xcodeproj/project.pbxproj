@@ -130,8 +130,6 @@
 		4634343517381D19000AFABE = {
 			isa = PBXGroup;
 			children = (
-				4662F018173891B5002A5B03 /* libstdc++.dylib */,
-				4634346C17386103000AFABE /* libz.dylib */,
 				4634344717381D19000AFABE /* FrameCleaner */,
 				4634344017381D19000AFABE /* Frameworks */,
 				4634343F17381D19000AFABE /* Products */,
@@ -149,6 +147,8 @@
 		4634344017381D19000AFABE /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				4662F018173891B5002A5B03 /* libstdc++.dylib */,
+				4634346C17386103000AFABE /* libz.dylib */,
 				C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */,
 				A96912A717B2F7FC00739D28 /* CoreGraphics.framework */,
 				4634344117381D19000AFABE /* Cocoa.framework */,

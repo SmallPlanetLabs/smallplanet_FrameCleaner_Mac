@@ -787,6 +787,46 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
 
 @end
 
+@interface NSMutableArray (ArchUtils_Shuffle)
+- (void)shuffle;
+@end
+
+// Chooses a random integer below n without bias.
+// Computes m, a power of two slightly above n, and takes random() modulo m,
+// then throws away the random number if it's between n and m.
+// (More naive techniques, like taking random() modulo n, introduce a bias
+// towards smaller numbers in the range.)
+static NSUInteger random_below(NSUInteger n) {
+    NSUInteger m = 1;
+    
+    // Compute smallest power of two greater than n.
+    // There's probably a faster solution than this loop, but bit-twiddling
+    // isn't my specialty.
+    do {
+        m <<= 1;
+    } while(m < n);
+    
+    NSUInteger ret;
+    
+    do {
+        ret = random() % m;
+    } while(ret >= n);
+    
+    return ret;
+}
+
+@implementation NSMutableArray (ArchUtils_Shuffle)
+
+- (void)shuffle {
+    // http://en.wikipedia.org/wiki/Knuth_shuffle
+    
+    for(NSUInteger i = [self count]; i > 1; i--) {
+        NSUInteger j = random_below(i);
+        [self exchangeObjectAtIndex:i-1 withObjectAtIndex:j];
+    }
+}
+
+@end
 
 @interface FCRegion : NSObject {
     CGRect bounds;
@@ -797,6 +837,7 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
 - (CGFloat) unionAreaWithBounds:(CGRect)rect;
 - (BOOL) containsPoint:(CGPoint)point withInset:(CGFloat)inset;
 - (CGFloat) areaWithPoint:(CGPoint)point;
+- (CGFloat) area;
 - (CGFloat) maxSideWithPoint:(CGPoint)point;
 - (void) setBounds:(CGRect)_bounds;
 - (void) mergeWithRegion:(FCRegion *)region;
@@ -818,6 +859,11 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
 - (BOOL) containsPoint:(CGPoint)point withInset:(CGFloat)inset
 {
     return (CGRectContainsPoint(CGRectInset(bounds,inset,inset), point));
+}
+
+- (CGFloat) area
+{
+    return bounds.size.width * bounds.size.height;
 }
 
 - (CGFloat) areaWithPoint:(CGPoint)point
@@ -933,13 +979,23 @@ int convertDecimalToBaseN(int a, int n)
                 }
                 BOOL match = NO;
                 CGPoint point = CGPointMake(1.f*c,1.f*(size.height - r - 1));
+                CGFloat minArea = -1;
+                FCRegion *minRegion = nil;
                 for (FCRegion *region in subregions)
                 {
                     if ([region containsPoint:point withInset:SUBREGION_INSET] && [region maxSideWithPoint:point] < EDGE_THRESHOLD)
                     {
-                        [region addPoint:point];
+                        CGFloat newArea = [region areaWithPoint:point];
+                        if (minArea < 0 || minArea > newArea)
+                        {
+                            minRegion = region;
+                            minArea = newArea;
+                        }
+                    }
+                    if (minArea > 0)
+                    {
+                        [minRegion addPoint:point];
                         match = YES;
-                        break;
                     }
                 }
                 if (!match)
@@ -987,9 +1043,11 @@ int convertDecimalToBaseN(int a, int n)
     }
     
     int reduce = [set count]-max;
-    for (int c=0; c<reduce; c++)
+    int loopmax = [set count]-1;
+    for (int c=0; c<loopmax; c++)
     {
-        NSArray *allObjects = [set allObjects];
+        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+        [allObjects shuffle];
         CGFloat minArea = -1;
         FCRegion *min1=nil, *min2=nil;
         for (FCRegion *r1 in allObjects)
@@ -999,7 +1057,33 @@ int convertDecimalToBaseN(int a, int n)
                 FCRegion *r2 = [allObjects objectAtIndex:compare];
                 CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
 //                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
-                if (comboArea < minArea || minArea < 0)
+                CGFloat sumArea = [r1 area] + [r2 area];
+                if (sumArea > comboArea)
+                {
+                    [r1 mergeWithRegion:r2];
+                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
+                    [set removeObject:r2];
+                }
+            }
+        }
+    }
+    
+    reduce = [set count]-max;
+    loopmax = [set count]-1;
+    for (int c=0; c<loopmax; c++)
+    {
+        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+        [allObjects shuffle];
+        CGFloat minArea = -1;
+        FCRegion *min1=nil, *min2=nil;
+        for (FCRegion *r1 in allObjects)
+        {
+            for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
+            {
+                FCRegion *r2 = [allObjects objectAtIndex:compare];
+                CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
+                //                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
+                if (c < reduce && (comboArea < minArea || minArea < 0))
                 {
                     minArea = comboArea;
                     min1 = r1;
@@ -1007,8 +1091,12 @@ int convertDecimalToBaseN(int a, int n)
                 }
             }
         }
-        [min1 mergeWithRegion:min2];
-        [set removeObject:min2];
+        if (min1 && min2)
+        {
+            NSLog(@"MIN merging %@ and %@", min1, min2);
+            [min1 mergeWithRegion:min2];
+            [set removeObject:min2];
+        }
     }
     
     for (FCRegion *region in [set allObjects])
