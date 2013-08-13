@@ -1050,9 +1050,9 @@ int convertDecimalToBaseN(int a, int n)
         }
     }
     
-    NSString *magick = @"\n\n";
     NSMutableSet *set = [NSMutableSet setWithArray:subregions];
     
+    // Initial pass through regions to find regions entirely contained in other regions
     for (FCRegion *region in subregions)
     {
         if ([region numberOfPoints] < MIN_POINTS_PER_SUBREGION)
@@ -1075,7 +1075,7 @@ int convertDecimalToBaseN(int a, int n)
         }
     }
     
-    
+    // Pass through regions to find some to combine that yield smaller areas
     int reduce = [set count]-max;
     int loopmax = [set count]-1;
     for (int c=0; c<loopmax; c++)
@@ -1088,25 +1088,25 @@ int convertDecimalToBaseN(int a, int n)
             {
                 FCRegion *r2 = [allObjects objectAtIndex:compare];
                 CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
-//                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
                 CGFloat sumArea = [r1 area] + [r2 area];
                 if (sumArea > comboArea)
                 {
                     [r1 mergeWithRegion:r2];
-//                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
                     [set removeObject:r2];
                 }
             }
         }
     }
     
-    for (FCRegion *region in [set allObjects])
-    {
-        CGRect bounds = [region bounds];
-        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
-        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
-    }
+    NSString *magick = @"\n\n";
+//    for (FCRegion *region in [set allObjects])
+//    {
+//        CGRect bounds = [region bounds];
+//        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
+//        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
+//    }
 
+    // main optimization loop -- reduce to find the bare minimum 
     reduce = [set count]-max;
     loopmax = [set count]-1;
     for (int c=0; c<loopmax; c++)
@@ -1121,7 +1121,6 @@ int convertDecimalToBaseN(int a, int n)
             {
                 FCRegion *r2 = [allObjects objectAtIndex:compare];
                 CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
-                //                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
                 if (c < reduce && (comboArea < minArea || minArea < 0))
                 {
                     minArea = comboArea;
@@ -1132,12 +1131,12 @@ int convertDecimalToBaseN(int a, int n)
         }
         if (min1 && min2)
         {
-//            NSLog(@"MIN merging %@ and %@", min1, min2);
             [min1 mergeWithRegion:min2];
             [set removeObject:min2];
         }
     }
 
+    // Another pass through remaining regions to find some to combine that yield smaller areas
     reduce = [set count]-max;
     loopmax = [set count]-1;
     for (int c=0; c<loopmax; c++)
@@ -1150,12 +1149,10 @@ int convertDecimalToBaseN(int a, int n)
             {
                 FCRegion *r2 = [allObjects objectAtIndex:compare];
                 CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
-                //                NSLog(@"%f = %@ + %@", comboArea, r1, r2);
                 CGFloat sumArea = [r1 area] + [r2 area];
                 if (sumArea > comboArea)
                 {
                     [r1 mergeWithRegion:r2];
-                    //                    NSLog(@"(%f > %f) contain merging %@ and %@", sumArea, comboArea, r1, r2);
                     [set removeObject:r2];
                 }
             }
@@ -1192,6 +1189,8 @@ int convertDecimalToBaseN(int a, int n)
     
     return [NSMutableArray arrayWithArray:[set allObjects]];
 }
+
+
 
 - (void) processDirectoryAtPath:(NSString *)sourceDirectory
 {
@@ -1359,7 +1358,7 @@ int convertDecimalToBaseN(int a, int n)
             [view setWantsLayer:YES];
             [view setLayer:viewLayer];
             [imageView addSubview:view];
-            NSLog(@"drawing box: %@ <== %@", NSStringFromRect(vbounds), NSStringFromRect(NSRectFromCGRect(rbounds)));
+//            NSLog(@"drawing box: %@ <== %@", NSStringFromRect(vbounds), NSStringFromRect(NSRectFromCGRect(rbounds)));
         }
         NSLog(@"total area %.0f px^2 from %d regions", totalArea, [subregions count]);
         [win setTitle:[NSString stringWithFormat:@"%.0f sqpx in %d regions", totalArea, [subregions count]]];
