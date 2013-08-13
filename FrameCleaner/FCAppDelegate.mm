@@ -1106,7 +1106,7 @@ int convertDecimalToBaseN(int a, int n)
 //        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
 //    }
 
-    // main optimization loop -- reduce to find the bare minimum 
+    // main optimization loop -- reduce to find the bare minimum
     reduce = [set count]-max;
     loopmax = [set count]-1;
     for (int c=0; c<loopmax; c++)
@@ -1257,7 +1257,7 @@ int convertDecimalToBaseN(int a, int n)
                 
                 if(newImage)
                 {
-                    if(gShouldTrimImages)
+                    if(findSubregionsMax == 0 && gShouldTrimImages)
                     {
                         CGPoint localMin, localMax;
                         
@@ -1315,7 +1315,7 @@ int convertDecimalToBaseN(int a, int n)
         imageIndex++;
     }
 
-    NSArray *subregions;
+    NSMutableArray *subregions = nil;
     if (findSubregionsMax > 0)
     {
         NSRect imageBounds = NSMakeRect(0, 0, 1024, 1024);
@@ -1338,8 +1338,6 @@ int convertDecimalToBaseN(int a, int n)
         imageView.image = image;
 
         [win.contentView addSubview:imageView];
-//        NSLog(@"contentView frame: %f", [win.contentView frame].size.height);
-        
 
         [FCImage dumpData:subregionData size:[firstImage size]];
         subregions = [self computeMaxSubregions:findSubregionsMax fromData:subregionData ofSize:[firstImage size]];
@@ -1365,203 +1363,231 @@ int convertDecimalToBaseN(int a, int n)
         [[NSApplication sharedApplication] runModalForWindow:win];
 
     }
-    
-    imageIndex = 0;
-    for(FCImage * newImage in allImages)
-    {
-        @autoreleasepool {            
-            [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Processing %@", [newImage.sourceFile lastPathComponent]]
-                                          withValue:((float)imageIndex/(float)[allFiles count])];
-    
-            FCImage * duplicateOfImage = NULL;
-            
-            newImage.index = imageIndex++;
-            
-            if(gShouldRemoveDuplicates)
-            {
-                // Check to see if another frame is like this frame.
-                for(FCImage * existingImage in uniqueImages)
+
+    NSString *regionsSnippet = @"";
+    int currentRegion = 0;
+    do {
+        imageIndex = 0;
+        
+        FCRegion *region = nil;
+        NSString *suffix = @"";
+        if (subregions)
+        {
+            region = [subregions objectAtIndex:currentRegion];
+            CGRect cropBounds = [region bounds];
+            globalMin.x = cropBounds.origin.x;
+            globalMin.y = cropBounds.origin.y;
+            globalMax.x = cropBounds.origin.x + cropBounds.size.width;
+            globalMax.y = cropBounds.origin.y + cropBounds.size.height;
+            suffix = [NSString stringWithFormat:@"_region%02d",currentRegion];
+        }
+        
+        for(FCImage * newImage in allImages)
+        {
+            @autoreleasepool {            
+                [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Processing %@", [newImage.sourceFile lastPathComponent]]
+                                              withValue:((float)imageIndex/(float)[allFiles count])];
+        
+                FCImage * duplicateOfImage = NULL;
+                
+                newImage.index = imageIndex++;
+                
+                if(gShouldRemoveDuplicates)
                 {
-                    @autoreleasepool {
-                        if([newImage compare:existingImage])
-                        {
-                            NSLog(@"DUPLICATE: %@ and %@", [newImage.sourceFile lastPathComponent], [existingImage.sourceFile lastPathComponent]);
-                            duplicateOfImage = existingImage;
+                    // Check to see if another frame is like this frame.
+                    for(FCImage * existingImage in uniqueImages)
+                    {
+                        @autoreleasepool {
+                            if([newImage compare:existingImage])
+                            {
+                                NSLog(@"DUPLICATE: %@ and %@", [newImage.sourceFile lastPathComponent], [existingImage.sourceFile lastPathComponent]);
+                                duplicateOfImage = existingImage;
+                                [newImage dropMemory];
+                                [existingImage dropMemory];
+                                break;
+                            }
                             [newImage dropMemory];
                             [existingImage dropMemory];
-                            break;
                         }
-                        [newImage dropMemory];
-                        [existingImage dropMemory];
                     }
                 }
+                
+                if(duplicateOfImage)
+                {
+                    newImage.index = duplicateOfImage.index;
+                }
+                else
+                {
+                    [uniqueImages addObject:newImage];
+                }
+
+                [processedImages addObject:newImage];
             }
+        }
+        
+        // Translate the indices in processedImages to their uniqueImages equivalents
+        for(FCImage * image in processedImages)
+        {
+            FCImage * otherImage = [processedImages objectAtIndex:image.index];
+            image.index = [uniqueImages indexOfObject:otherImage];
+            [image dropMemory];
+        }
+        
+        NSMutableString * frameSequence = [NSMutableString string];
+        for(int i = 0; i < [processedImages count]; i++)
+        {
+            FCImage * image = [processedImages objectAtIndex:i];
+            BOOL didConversion = NO;
             
-            if(duplicateOfImage)
+            // Detect runs of the same number...
+            for(int j = i+1; j < [processedImages count]; j++)
             {
-                newImage.index = duplicateOfImage.index;
+                FCImage * nextImage = [processedImages objectAtIndex:j];
+                
+                if(nextImage.index != image.index || j+1 >= [processedImages count])
+                {
+                    if(j-i > 1)
+                    {
+                        [frameSequence appendFormat:@"%d*%d,", (int)image.index, j-i];
+                        i = j-1;
+                        didConversion = YES;
+                    }
+                    break;
+                }
+            }
+            if(didConversion) continue;
+            
+            // Detect runs of incremental number...
+            for(int j = i+1; j < [processedImages count]; j++)
+            {
+                FCImage * nextImage = [processedImages objectAtIndex:j];
+                FCImage * prevImage = [processedImages objectAtIndex:j-1];
+                
+                if(nextImage.index != prevImage.index+1 || j+1 >= [processedImages count])
+                {
+                    if(prevImage.index-image.index > 1)
+                    {
+                        [frameSequence appendFormat:@"%d-%d,", (int)image.index, (int)prevImage.index];
+                        i = j-1;
+                        didConversion = YES;
+                    }
+                    break;
+                }
+            }
+            if(didConversion) continue;
+            
+            
+            
+            [frameSequence appendFormat:@"%d,", (int)image.index];
+        }
+        
+        // Create the export directory
+        NSString * exportDirectory = [sourceDirectory stringByAppendingPathComponent:@"export"];
+        
+        [[NSFileManager defaultManager] removeItemAtPath:exportDirectory error:NULL];
+        
+        [[NSFileManager defaultManager] createDirectoryAtPath:exportDirectory
+                                  withIntermediateDirectories:NO
+                                                   attributes:NULL
+                                                        error:NULL];
+        
+        // Export all of the images
+        queue = [[NSOperationQueue alloc] init];
+        queue.maxConcurrentOperationCount = 8;
+        
+        for(FCImage * image in uniqueImages)
+        {
+            NSString * fileName = [[[image sourceFile] lastPathComponent] stringByDeletingPathExtension];
+
+            if (findSubregionsMax > 0)
+            {
+                fileName = [fileName stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"]];
+                fileName = [fileName stringByAppendingString:suffix];
+                fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@%04d", fileName, (int)image.index]];
+            }
+            else if(gShouldRemoveDuplicates)
+            {
+                fileName = [fileName stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"]];
+                fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@%04d", fileName, (int)image.index]];
             }
             else
             {
-                [uniqueImages addObject:newImage];
+                fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@", fileName]];
             }
-
-            [processedImages addObject:newImage];
-        }
-    }
-    
-    // Translate the indices in processedImages to their uniqueImages equivalents
-    for(FCImage * image in processedImages)
-    {
-        FCImage * otherImage = [processedImages objectAtIndex:image.index];
-        image.index = [uniqueImages indexOfObject:otherImage];
-        [image dropMemory];
-    }
-    
-    NSMutableString * frameSequence = [NSMutableString string];
-    for(int i = 0; i < [processedImages count]; i++)
-    {
-        FCImage * image = [processedImages objectAtIndex:i];
-        BOOL didConversion = NO;
-        
-        // Detect runs of the same number...
-        for(int j = i+1; j < [processedImages count]; j++)
-        {
-            FCImage * nextImage = [processedImages objectAtIndex:j];
             
-            if(nextImage.index != image.index || j+1 >= [processedImages count])
+            switch([exportMatrix selectedRow])
             {
-                if(j-i > 1)
-                {
-                    [frameSequence appendFormat:@"%d*%d,", (int)image.index, j-i];
-                    i = j-1;
-                    didConversion = YES;
-                }
-                break;
+                case 0:
+                    [image exportPNGTo:fileName
+                             withQueue:queue];
+                    break;
+                case 1:
+                    [image exportLZ4To:fileName
+                             withQueue:queue];
+                    break;
+                case 2:
+                    [image exportPVRPhotoTo:fileName
+                                     withQueue:queue];
+                    break;
+                case 3:
+                    [image exportPVRGradientTo:fileName
+                                  withQueue:queue];
+                    break;
+                case 4:
+                    [image exportPNGQuantTo:fileName
+                                  withQueue:queue
+                              withTableSize:256];
+                    break;
+                case 5:
+                    [image exportPNGQuantTo:fileName
+                                  withQueue:queue
+                              withTableSize:128];
+                    break;
+                case 6:
+                    [image exportPNGQuantTo:fileName
+                                  withQueue:queue
+                              withTableSize:64];
+                    break;
+                    
+                case 7:
+                    [image exportSP1To:fileName
+                             withQueue:queue
+                         withTableSize:64];
+                    break;
             }
         }
-        if(didConversion) continue;
         
-        // Detect runs of incremental number...
-        for(int j = i+1; j < [processedImages count]; j++)
+        while([queue operationCount])
         {
-            FCImage * nextImage = [processedImages objectAtIndex:j];
-            FCImage * prevImage = [processedImages objectAtIndex:j-1];
+            usleep(50000);
             
-            if(nextImage.index != prevImage.index+1 || j+1 >= [processedImages count])
-            {
-                if(prevImage.index-image.index > 1)
-                {
-                    [frameSequence appendFormat:@"%d-%d,", (int)image.index, (int)prevImage.index];
-                    i = j-1;
-                    didConversion = YES;
-                }
-                break;
-            }
+            [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Exporting Images..."]
+                                          withValue:1.0f - ((float)[queue operationCount]/(float)[uniqueImages count])];
         }
-        if(didConversion) continue;
         
+        [queue release];
         
-        
-        [frameSequence appendFormat:@"%d,", (int)image.index];
-    }
-    
-    // Create the export directory
-    NSString * exportDirectory = [sourceDirectory stringByAppendingPathComponent:@"export"];
-    
-    [[NSFileManager defaultManager] removeItemAtPath:exportDirectory error:NULL];
-    
-    [[NSFileManager defaultManager] createDirectoryAtPath:exportDirectory
-                              withIntermediateDirectories:NO
-                                               attributes:NULL
-                                                    error:NULL];
-    
-    // Export all of the images
-    queue = [[NSOperationQueue alloc] init];
-    queue.maxConcurrentOperationCount = 8;
-    
-    for(FCImage * image in uniqueImages)
-    {
-        NSString * fileName = [[[image sourceFile] lastPathComponent] stringByDeletingPathExtension];
+        if(findSubregionsMax > 0)
+        {
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"%d,%d,%d,%d\" urlPath=\"\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
+        }
+        else if (gShouldRemoveDuplicates)
+        {
+            NSString *bounds = [bounds stringByAppendingFormat:@"%d,%d,%d,%d", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
+            
+            [bounds writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"bounds.txt"]]
+                     atomically:NO
+                       encoding:NSUTF8StringEncoding
+                          error:NULL];
+            
+            [frameSequence writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"sequence.txt"]]
+                            atomically:NO
+                              encoding:NSUTF8StringEncoding
+                                 error:NULL];
+        }
+        currentRegion++;
+    } while (currentRegion < [subregions count]);
 
-        if(gShouldRemoveDuplicates)
-        {
-            fileName = [fileName stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"]];
-            fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@%04d", fileName, (int)image.index]];
-        }
-        else
-        {
-            fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@", fileName]];
-        }
-        
-        switch([exportMatrix selectedRow])
-        {
-            case 0:
-                [image exportPNGTo:fileName
-                         withQueue:queue];
-                break;
-            case 1:
-                [image exportLZ4To:fileName
-                         withQueue:queue];
-                break;
-            case 2:
-                [image exportPVRPhotoTo:fileName
-                                 withQueue:queue];
-                break;
-            case 3:
-                [image exportPVRGradientTo:fileName
-                              withQueue:queue];
-                break;
-            case 4:
-                [image exportPNGQuantTo:fileName
-                              withQueue:queue
-                          withTableSize:256];
-                break;
-            case 5:
-                [image exportPNGQuantTo:fileName
-                              withQueue:queue
-                          withTableSize:128];
-                break;
-            case 6:
-                [image exportPNGQuantTo:fileName
-                              withQueue:queue
-                          withTableSize:64];
-                break;
-                
-            case 7:
-                [image exportSP1To:fileName
-                         withQueue:queue
-                     withTableSize:64];
-                break;
-        }
-    }
-    
-    while([queue operationCount])
-    {
-        usleep(50000);
-        
-        [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Exporting Images..."]
-                                      withValue:1.0f - ((float)[queue operationCount]/(float)[uniqueImages count])];
-    }
-    
-    [queue release];
-    
-    if(gShouldRemoveDuplicates)
-    {
-        NSString * bounds = [NSString stringWithFormat:@"%d,%d,%d,%d", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
-        
-        [bounds writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"bounds.txt"]]
-                 atomically:NO
-                   encoding:NSUTF8StringEncoding
-                      error:NULL];
-        
-        [frameSequence writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"sequence.txt"]]
-                        atomically:NO
-                          encoding:NSUTF8StringEncoding
-                             error:NULL];
-    }
-    
-    
     [transWindow stopProgressBarWithMessage:@"Process Complete"];
     
     [transWindow autorelease];
