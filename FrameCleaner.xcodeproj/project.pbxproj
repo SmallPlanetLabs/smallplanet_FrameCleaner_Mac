@@ -42,6 +42,7 @@
 		46EA31A61754E9740078F94E /* lz4.c in Sources */ = {isa = PBXBuildFile; fileRef = 46EA31A21754E9740078F94E /* lz4.c */; };
 		46F9497817978CA000FCE42B /* pngquant in Resources */ = {isa = PBXBuildFile; fileRef = 46F9497717978CA000FCE42B /* pngquant */; };
 		46F9497A17978EB500FCE42B /* pngnq in Resources */ = {isa = PBXBuildFile; fileRef = 46F9497917978EB500FCE42B /* pngnq */; };
+		C4273F3017B9ADB000F0C4F2 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -108,6 +109,7 @@
 		46F9497717978CA000FCE42B /* pngquant */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = pngquant; sourceTree = SOURCE_ROOT; };
 		46F9497917978EB500FCE42B /* pngnq */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = pngnq; sourceTree = SOURCE_ROOT; };
 		A96912A717B2F7FC00739D28 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -115,6 +117,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C4273F3017B9ADB000F0C4F2 /* QuartzCore.framework in Frameworks */,
 				4634346D17386103000AFABE /* libz.dylib in Frameworks */,
 				4662F01A1738929D002A5B03 /* libPVRTexLib.a in Frameworks */,
 				4634344217381D19000AFABE /* Cocoa.framework in Frameworks */,
@@ -146,6 +149,7 @@
 		4634344017381D19000AFABE /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */,
 				A96912A717B2F7FC00739D28 /* CoreGraphics.framework */,
 				4634344117381D19000AFABE /* Cocoa.framework */,
 				4634344317381D19000AFABE /* Other Frameworks */,

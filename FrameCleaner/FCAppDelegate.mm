@@ -911,7 +911,7 @@ int convertDecimalToBaseN(int a, int n)
 
 #define SUBREGION_THRESHOLD 1
 #define SUBREGION_INSET -1
-#define MIN_POINTS_PER_SUBREGION 3
+#define MIN_POINTS_PER_SUBREGION 1
 #define AREA_THRESHOLD 1000
 #define EDGE_THRESHOLD 50
 
@@ -926,7 +926,7 @@ int convertDecimalToBaseN(int a, int n)
         for (int c=0; c<size.width; c++)
         {
             
-            if (*ptr + *(ptr+1) + *(ptr+2) + *(ptr+3) > SUBREGION_THRESHOLD)
+            if (abs(*ptr) + abs(*(ptr+1)) + abs(*(ptr+2)) + abs(*(ptr+3)) > SUBREGION_THRESHOLD)
             {
                 if (c<5) {
                     printf("%5d %5d  ==>  %5d %5d %5d\n", c, r, *ptr, *(ptr+1), *(ptr+2));
@@ -1148,8 +1148,46 @@ int convertDecimalToBaseN(int a, int n)
     NSArray *subregions;
     if (findSubregionsMax > 0)
     {
+        NSRect imageBounds = NSMakeRect(0, 0, 1024, 1024);
+        CGSize imgSize = [firstImage size];
+        imageBounds.size = NSSizeFromCGSize(imgSize);
+        CGFloat maxSize = (imgSize.width > imgSize.height ? imgSize.width : imgSize.height);
+        if (maxSize > 1024)
+        {
+            imageBounds.size.width = 1024/maxSize * imgSize.width;
+            imageBounds.size.height = 1024/maxSize * imgSize.height;
+        }
+        
+        NSWindow *win = [[NSWindow alloc] initWithContentRect:imageBounds
+                                                    styleMask:(NSTitledWindowMask|NSClosableWindowMask|NSResizableWindowMask)
+                                                      backing:NSBackingStoreBuffered
+                                                        defer:NO];
+        NSImageView *imageView = [[NSImageView alloc] initWithFrame:win.frame];
+        NSImage *image = [[NSImage alloc ] initByReferencingFile:firstImage.sourceFile];
+        imageView.image = image;
+
+        [win.contentView addSubview:imageView];
+        
+
         [FCImage dumpData:subregionData size:[firstImage size]];
         subregions = [self computeMaxSubregions:findSubregionsMax fromData:subregionData ofSize:[firstImage size]];
+        
+        
+        for (FCRegion *region in subregions)
+        {
+            CGRect rbounds = [region bounds];
+            CGFloat scale = imgSize.height / imageBounds.size.height;
+            NSRect vbounds = NSMakeRect(rbounds.origin.x*scale, rbounds.origin.y*scale, rbounds.size.width*scale, rbounds.size.height*scale);
+            NSView *view = [[NSView alloc] initWithFrame:vbounds];
+            CALayer *viewLayer = [CALayer layer];
+            [viewLayer setBackgroundColor:CGColorCreateGenericRGB(0.8, 0.0, 0.0, 0.4)];
+            [view setWantsLayer:YES];
+            [view setLayer:viewLayer];
+            [imageView addSubview:view];
+        }
+        
+        [[NSApplication sharedApplication] runModalForWindow:win];
+
     }
     
     imageIndex = 0;
