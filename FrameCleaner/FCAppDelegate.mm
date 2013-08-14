@@ -1190,8 +1190,72 @@ int convertDecimalToBaseN(int a, int n)
     return [NSMutableArray arrayWithArray:[set allObjects]];
 }
 
+- (void) exportImage:(FCImage*)image toFileName:(NSString*)fileName queue:(NSOperationQueue*)_queue withExportMatrix:(NSInteger)selectedRow
+{
+    switch(selectedRow)
+    {
+        case 0:
+            [image exportPNGTo:fileName
+                     withQueue:_queue];
+            break;
+        case 1:
+            [image exportLZ4To:fileName
+                     withQueue:_queue];
+            break;
+        case 2:
+            [image exportPVRPhotoTo:fileName
+                          withQueue:_queue];
+            break;
+        case 3:
+            [image exportPVRGradientTo:fileName
+                             withQueue:_queue];
+            break;
+        case 4:
+            [image exportPNGQuantTo:fileName
+                          withQueue:_queue
+                      withTableSize:256];
+            break;
+        case 5:
+            [image exportPNGQuantTo:fileName
+                          withQueue:_queue
+                      withTableSize:128];
+            break;
+        case 6:
+            [image exportPNGQuantTo:fileName
+                          withQueue:_queue
+                      withTableSize:64];
+            break;
+            
+        case 7:
+            [image exportSP1To:fileName
+                     withQueue:_queue
+                 withTableSize:64];
+            break;
+    }
 
+}
 
+- (NSString *) extensionForExportMatrix:(NSInteger)selectedRow
+{
+    switch(selectedRow)
+    {
+        case 0:
+        case 4:
+        case 5:
+        case 6:
+        case 7:
+            return @"png";
+            break;
+        case 1:
+            return @"lz4";
+            break;
+        case 2:
+        case 3:
+            return @"pvr";
+            break;
+    }
+    return @"";
+}
 - (void) processDirectoryAtPath:(NSString *)sourceDirectory
 {
     NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -1289,7 +1353,7 @@ int convertDecimalToBaseN(int a, int n)
                     {
                         if (!firstImage)
                         {
-                            firstImage = [[FCImage alloc] initWithSource:filePath];
+                            firstImage = [[[FCImage alloc] initWithSource:filePath] retain];
                             subregionData = [[NSMutableData dataWithLength:[[firstImage pixelData] length]] retain];
                         }
                         else
@@ -1360,11 +1424,35 @@ int convertDecimalToBaseN(int a, int n)
         }
         NSLog(@"total area %.0f px^2 from %d regions", totalArea, [subregions count]);
         [win setTitle:[NSString stringWithFormat:@"%.0f sqpx in %d regions", totalArea, [subregions count]]];
-        [[NSApplication sharedApplication] runModalForWindow:win];
+        [win makeKeyAndOrderFront:[NSApplication sharedApplication]];
 
     }
 
     NSString *regionsSnippet = @"";
+    NSString *baseFileName = [[[firstImage sourceFile] lastPathComponent] stringByDeletingPathExtension];
+    baseFileName = [baseFileName stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"]];
+
+    // Create the export directory
+    NSString * exportDirectory = [sourceDirectory stringByAppendingPathComponent:@"export"];
+    
+    [[NSFileManager defaultManager] removeItemAtPath:exportDirectory error:NULL];
+    
+    [[NSFileManager defaultManager] createDirectoryAtPath:exportDirectory
+                              withIntermediateDirectories:NO
+                                               attributes:NULL
+                                                    error:NULL];
+    // export whole first image if using subregions
+    if(findSubregionsMax > 0)
+    {
+        globalMin = CGPointZero;
+        globalMax = CGPointMake(firstImage.size.width, firstImage.size.height);
+        NSString *fileName = [baseFileName stringByAppendingString:@"base"];
+        [self exportImage:firstImage toFileName:[exportDirectory stringByAppendingPathComponent:fileName] queue:queue withExportMatrix:[exportMatrix selectedRow]];
+        NSString *urlPath = [NSString stringWithFormat:@"bundle://%@", fileName];
+        urlPath = [urlPath stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
+        regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"0,0,%d,%d\" urlPath=\"%@\">\n", (int)([firstImage size].width), (int)([firstImage size].height), urlPath];
+    }
+
     int currentRegion = 0;
     do {
         imageIndex = 0;
@@ -1375,11 +1463,16 @@ int convertDecimalToBaseN(int a, int n)
         {
             region = [subregions objectAtIndex:currentRegion];
             CGRect cropBounds = [region bounds];
+            CGSize imgSize = [firstImage size];
             globalMin.x = cropBounds.origin.x;
-            globalMin.y = cropBounds.origin.y;
+            globalMin.y = imgSize.height - cropBounds.origin.y - cropBounds.size.height;
             globalMax.x = cropBounds.origin.x + cropBounds.size.width;
-            globalMax.y = cropBounds.origin.y + cropBounds.size.height;
-            suffix = [NSString stringWithFormat:@"_region%02d",currentRegion];
+            globalMax.y = globalMin.y + cropBounds.size.height;
+            suffix = [NSString stringWithFormat:@"region%02d_",currentRegion];
+            NSString *fileName = [baseFileName stringByAppendingPathComponent:suffix];
+            fileName = [fileName stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t<Image bounds=\"%d,%d,%d,%d\" urlPath=\"%@\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y), [NSString stringWithFormat:@"bundle://%@",fileName]];
+
         }
         
         for(FCImage * newImage in allImages)
@@ -1481,22 +1574,6 @@ int convertDecimalToBaseN(int a, int n)
             [frameSequence appendFormat:@"%d,", (int)image.index];
         }
         
-        // Create the export directory
-        NSString * exportDirectory = [sourceDirectory stringByAppendingPathComponent:@"export"];
-        
-        [[NSFileManager defaultManager] removeItemAtPath:exportDirectory error:NULL];
-        
-        [[NSFileManager defaultManager] createDirectoryAtPath:exportDirectory
-                                  withIntermediateDirectories:NO
-                                                   attributes:NULL
-                                                        error:NULL];
-        // export whole first image if using subregions
-        if(findSubregionsMax > 0)
-        {
-            NSString 
-            NSString *urlPath = [NSString stringWithFormat:@"bundle://", ];
-        }
-        
         // Export all of the images
         queue = [[NSOperationQueue alloc] init];
         queue.maxConcurrentOperationCount = 8;
@@ -1508,7 +1585,7 @@ int convertDecimalToBaseN(int a, int n)
             if (findSubregionsMax > 0)
             {
                 fileName = [fileName stringByTrimmingCharactersInSet:[NSCharacterSet characterSetWithCharactersInString:@"0123456789"]];
-                fileName = [fileName stringByAppendingString:suffix];
+                fileName = [baseFileName stringByAppendingString:suffix];
                 fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@%04d", fileName, (int)image.index]];
             }
             else if(gShouldRemoveDuplicates)
@@ -1520,47 +1597,8 @@ int convertDecimalToBaseN(int a, int n)
             {
                 fileName = [exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"%@", fileName]];
             }
-            
-            switch([exportMatrix selectedRow])
-            {
-                case 0:
-                    [image exportPNGTo:fileName
-                             withQueue:queue];
-                    break;
-                case 1:
-                    [image exportLZ4To:fileName
-                             withQueue:queue];
-                    break;
-                case 2:
-                    [image exportPVRPhotoTo:fileName
-                                     withQueue:queue];
-                    break;
-                case 3:
-                    [image exportPVRGradientTo:fileName
-                                  withQueue:queue];
-                    break;
-                case 4:
-                    [image exportPNGQuantTo:fileName
-                                  withQueue:queue
-                              withTableSize:256];
-                    break;
-                case 5:
-                    [image exportPNGQuantTo:fileName
-                                  withQueue:queue
-                              withTableSize:128];
-                    break;
-                case 6:
-                    [image exportPNGQuantTo:fileName
-                                  withQueue:queue
-                              withTableSize:64];
-                    break;
-                    
-                case 7:
-                    [image exportSP1To:fileName
-                             withQueue:queue
-                         withTableSize:64];
-                    break;
-            }
+
+            [self exportImage:image toFileName:fileName queue:queue withExportMatrix:[exportMatrix selectedRow]];
         }
         
         while([queue operationCount])
@@ -1575,8 +1613,9 @@ int convertDecimalToBaseN(int a, int n)
         
         if(findSubregionsMax > 0)
         {
-            NSString *urlPath = [NSString stringWithFormat:@"bundle://"];
-            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"%d,%d,%d,%d\" urlPath=\"\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
+            NSString *pathFormat = [NSString stringWithFormat:@"bundle://%@%@#", baseFileName, suffix];
+            pathFormat = [pathFormat stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t\t<FrameAnimation sequence=\"%@\" pathFormat=\"%@\" digits=\"4\" />\n\t</Image>\n", frameSequence, pathFormat];
         }
         else if (gShouldRemoveDuplicates)
         {
@@ -1595,6 +1634,17 @@ int convertDecimalToBaseN(int a, int n)
         currentRegion++;
     } while (currentRegion < [subregions count]);
 
+    // export whole first image if using subregions
+    if(findSubregionsMax > 0)
+    {
+        regionsSnippet = [regionsSnippet stringByAppendingString:@"</Image>"];
+        [regionsSnippet writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"regions.xml"]]
+                        atomically:NO
+                          encoding:NSUTF8StringEncoding
+                             error:NULL];
+    }
+
+    
     [transWindow stopProgressBarWithMessage:@"Process Complete"];
     
     [transWindow autorelease];
@@ -1626,7 +1676,7 @@ int convertDecimalToBaseN(int a, int n)
         [self processDirectoryAtPath:[[[setDirectory URLs] objectAtIndex:0] path]];
     }
     
-    exit(1);
+//    exit(1);
 }
 
 @end
