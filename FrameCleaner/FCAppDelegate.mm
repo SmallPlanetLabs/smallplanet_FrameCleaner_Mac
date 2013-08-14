@@ -1256,6 +1256,7 @@ int convertDecimalToBaseN(int a, int n)
     }
     return @"";
 }
+
 - (void) processDirectoryAtPath:(NSString *)sourceDirectory
 {
     NSRect screenRect = [[NSScreen mainScreen] frame];
@@ -1469,7 +1470,7 @@ int convertDecimalToBaseN(int a, int n)
             globalMax.x = cropBounds.origin.x + cropBounds.size.width;
             globalMax.y = globalMin.y + cropBounds.size.height;
             suffix = [NSString stringWithFormat:@"region%02d_",currentRegion];
-            NSString *fileName = [baseFileName stringByAppendingPathComponent:suffix];
+            NSString *fileName = [baseFileName stringByAppendingString:suffix];
             fileName = [fileName stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
             regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t<Image bounds=\"%d,%d,%d,%d\" urlPath=\"%@\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y), [NSString stringWithFormat:@"bundle://%@",fileName]];
 
