@@ -1354,7 +1354,7 @@ int convertDecimalToBaseN(int a, int n)
                     {
                         if (!firstImage)
                         {
-                            firstImage = [[[FCImage alloc] initWithSource:filePath] retain];
+                            firstImage = [[FCImage alloc] initWithSource:filePath];
                             subregionData = [[NSMutableData dataWithLength:[[firstImage pixelData] length]] retain];
                         }
                         else
@@ -1449,7 +1449,7 @@ int convertDecimalToBaseN(int a, int n)
         globalMax = CGPointMake(firstImage.size.width, firstImage.size.height);
         NSString *fileName = [baseFileName stringByAppendingString:@"base"];
         [self exportImage:firstImage toFileName:[exportDirectory stringByAppendingPathComponent:fileName] queue:queue withExportMatrix:[exportMatrix selectedRow]];
-        NSString *urlPath = [NSString stringWithFormat:@"bundle://%@", fileName];
+        NSString *urlPath = [NSString stringWithFormat:@"bundle:///%@", fileName];
         urlPath = [urlPath stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
         regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"0,0,%d,%d\" urlPath=\"%@\">\n", (int)([firstImage size].width), (int)([firstImage size].height), urlPath];
     }
@@ -1472,9 +1472,12 @@ int convertDecimalToBaseN(int a, int n)
             suffix = [NSString stringWithFormat:@"region%02d_",currentRegion];
             NSString *fileName = [baseFileName stringByAppendingString:suffix];
             fileName = [fileName stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
-            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t<Image bounds=\"%d,%d,%d,%d\" urlPath=\"%@\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y), [NSString stringWithFormat:@"bundle://%@",fileName]];
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t<Image bounds=\"%d,%d,%d,%d\" urlPath=\"%@\">\n", (int)(cropBounds.origin.x), (int)(cropBounds.origin.y), (int)(cropBounds.size.width), (int)(cropBounds.size.height), [NSString stringWithFormat:@"bundle://%@",fileName]];
 
         }
+        
+        [processedImages removeAllObjects];
+        [uniqueImages removeAllObjects];
         
         for(FCImage * newImage in allImages)
         {
