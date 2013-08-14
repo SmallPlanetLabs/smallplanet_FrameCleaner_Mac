@@ -1490,6 +1490,12 @@ int convertDecimalToBaseN(int a, int n)
                                   withIntermediateDirectories:NO
                                                    attributes:NULL
                                                         error:NULL];
+        // export whole first image if using subregions
+        if(findSubregionsMax > 0)
+        {
+            NSString 
+            NSString *urlPath = [NSString stringWithFormat:@"bundle://", ];
+        }
         
         // Export all of the images
         queue = [[NSOperationQueue alloc] init];
@@ -1569,11 +1575,12 @@ int convertDecimalToBaseN(int a, int n)
         
         if(findSubregionsMax > 0)
         {
+            NSString *urlPath = [NSString stringWithFormat:@"bundle://"];
             regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"%d,%d,%d,%d\" urlPath=\"\">\n", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
         }
         else if (gShouldRemoveDuplicates)
         {
-            NSString *bounds = [bounds stringByAppendingFormat:@"%d,%d,%d,%d", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
+            NSString *bounds = [NSString stringWithFormat:@"%d,%d,%d,%d", (int)(globalMin.x), (int)(globalMin.y), (int)(globalMax.x-globalMin.x), (int)(globalMax.y-globalMin.y)];
             
             [bounds writeToFile:[exportDirectory stringByAppendingPathComponent:[NSString stringWithFormat:@"bounds.txt"]]
                      atomically:NO
