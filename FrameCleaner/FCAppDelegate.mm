@@ -641,6 +641,22 @@ static void pngReadCallback(png_structp png_ptr, png_bytep data, png_size_t leng
     return CGSizeMake(pixelsWide, pixelsHigh);
 }
 
+- (void) makeTransparentRect:(CGRect)rect
+{
+    NSData *data = [self pixelData];
+    unsigned char *ptr = (unsigned char*)[data bytes];
+    long rowSize = pixelsWide * 4;
+    for (int x=rect.origin.x; x<rect.origin.x+rect.size.width; x++)
+    {
+        for (int y=pixelsHigh-rect.origin.y-rect.size.height; y<pixelsHigh-rect.origin.y; y++)
+        {
+            *(ptr + y*rowSize + x*4 + 3) = 0;
+//            *(ptr + y*rowSize + x*4 + 3) = 128;
+//            *(ptr + y*rowSize + x*4 + 0) = 255;
+        }
+    }
+}
+
 - (NSData *) pixelData
 {
     if(storePixelData)
@@ -1098,14 +1114,6 @@ int convertDecimalToBaseN(int a, int n)
         }
     }
     
-    NSString *magick = @"\n\n";
-//    for (FCRegion *region in [set allObjects])
-//    {
-//        CGRect bounds = [region bounds];
-//        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
-//        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#dd000088' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
-//    }
-
     // main optimization loop -- reduce to find the bare minimum
     reduce = [set count]-max;
     loopmax = [set count]-1;
@@ -1179,14 +1187,6 @@ int convertDecimalToBaseN(int a, int n)
         }
     }
     
-    for (FCRegion *region in [set allObjects])
-    {
-        CGRect bounds = [region bounds];
-//        NSLog(@"%@", [NSString stringWithFormat:@"Region bounds {%f,%f; %f,%f} contains %d points", bounds.origin.x,bounds.origin.y,bounds.size.width,bounds.size.height, [region numberOfPoints]]);
-        magick = [magick stringByAppendingFormat:@"mogrify -draw 'rectangle %.0f,%.0f %.0f,%.0f' -fill '#0000dd88' in.png\n", bounds.origin.x,size.height-bounds.origin.y,bounds.origin.x+bounds.size.width,size.height-(bounds.origin.y+bounds.size.height)];
-    }
-    NSLog(@"%@",magick);
-    
     return [NSMutableArray arrayWithArray:[set allObjects]];
 }
 
@@ -1225,7 +1225,6 @@ int convertDecimalToBaseN(int a, int n)
                           withQueue:_queue
                       withTableSize:64];
             break;
-            
         case 7:
             [image exportSP1To:fileName
                      withQueue:_queue
@@ -1276,6 +1275,9 @@ int convertDecimalToBaseN(int a, int n)
     
     [transWindow startProgressBarWithMessage:@"Initializing Process"];
     
+    queue = [[NSOperationQueue alloc] init];
+    queue.maxConcurrentOperationCount = 8;
+
     NSMutableArray * allFiles = [NSMutableArray arrayWithArray:[[NSFileManager defaultManager] contentsOfDirectoryAtPath:sourceDirectory error:NULL]];
     
     NSMutableArray * allImages = [NSMutableArray array];
@@ -1447,11 +1449,16 @@ int convertDecimalToBaseN(int a, int n)
     {
         globalMin = CGPointZero;
         globalMax = CGPointMake(firstImage.size.width, firstImage.size.height);
+        FCImage *baseImage = [[FCImage alloc] initWithSource:firstImage.sourceFile];
+        for (FCRegion *region in subregions)
+        {
+            [baseImage makeTransparentRect:[region bounds]];
+        }
         NSString *fileName = [baseFileName stringByAppendingString:@"base"];
-        [self exportImage:firstImage toFileName:[exportDirectory stringByAppendingPathComponent:fileName] queue:queue withExportMatrix:[exportMatrix selectedRow]];
-        NSString *urlPath = [NSString stringWithFormat:@"bundle:///%@", fileName];
-        urlPath = [urlPath stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
-        regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"0,0,%d,%d\" urlPath=\"%@\">\n", (int)([firstImage size].width), (int)([firstImage size].height), urlPath];
+        [self exportImage:baseImage toFileName:[exportDirectory stringByAppendingPathComponent:fileName] queue:queue withExportMatrix:[exportMatrix selectedRow]];
+        fileName = [fileName stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
+        regionsSnippet = [regionsSnippet stringByAppendingFormat:@"<Image bounds=\"0,0,%d,%d\" urlPath=\"bundle://%@\">\n", (int)([firstImage size].width), (int)([firstImage size].height), fileName];
+        [baseImage release];
     }
 
     int currentRegion = 0;
@@ -1579,8 +1586,6 @@ int convertDecimalToBaseN(int a, int n)
         }
         
         // Export all of the images
-        queue = [[NSOperationQueue alloc] init];
-        queue.maxConcurrentOperationCount = 8;
         
         for(FCImage * image in uniqueImages)
         {
@@ -1613,7 +1618,6 @@ int convertDecimalToBaseN(int a, int n)
                                           withValue:1.0f - ((float)[queue operationCount]/(float)[uniqueImages count])];
         }
         
-        [queue release];
         
         if(findSubregionsMax > 0)
         {
@@ -1651,6 +1655,7 @@ int convertDecimalToBaseN(int a, int n)
     
     [transWindow stopProgressBarWithMessage:@"Process Complete"];
     
+    [queue release];
     [transWindow autorelease];
     [subregionData release];
 }
