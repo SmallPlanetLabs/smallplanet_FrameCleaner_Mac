@@ -1514,6 +1514,30 @@
 										<int key="NSTag">15</int>
 										<reference key="NSTarget" ref="840081047"/>
 									</object>
+									<object class="NSMenuItem" id="886838559">
+										<reference key="NSMenu" ref="269895535"/>
+										<string key="NSTitle">20</string>
+										<string key="NSKeyEquiv"/>
+										<int key="NSKeyEquivModMask">1048576</int>
+										<int key="NSMnemonicLoc">2147483647</int>
+										<reference key="NSOnImage" ref="35465992"/>
+										<reference key="NSMixedImage" ref="502551668"/>
+										<string key="NSAction">_popUpItemAction:</string>
+										<int key="NSTag">20</int>
+										<reference key="NSTarget" ref="840081047"/>
+									</object>
+									<object class="NSMenuItem" id="703920838">
+										<reference key="NSMenu" ref="269895535"/>
+										<string key="NSTitle">30</string>
+										<string key="NSKeyEquiv"/>
+										<int key="NSKeyEquivModMask">1048576</int>
+										<int key="NSMnemonicLoc">2147483647</int>
+										<reference key="NSOnImage" ref="35465992"/>
+										<reference key="NSMixedImage" ref="502551668"/>
+										<string key="NSAction">_popUpItemAction:</string>
+										<int key="NSTag">30</int>
+										<reference key="NSTarget" ref="840081047"/>
+									</object>
 								</array>
 								<reference key="NSMenuFont" ref="790707053"/>
 							</object>
@@ -3988,6 +4012,8 @@ AAMAAAABAAEAAAFTAAMAAAAEAAAFwgAAAAAACAAIAAgACAABAAEAAQABA</bytes>
 							<reference ref="243787994"/>
 							<reference ref="331522228"/>
 							<reference ref="135232881"/>
+							<reference ref="886838559"/>
+							<reference ref="703920838"/>
 						</array>
 						<reference key="parent" ref="840081047"/>
 					</object>
@@ -4131,6 +4157,17 @@ AAMAAAABAAEAAAFTAAMAAAAEAAAFwgAAAAAACAAIAAgACAABAAEAAQABA</bytes>
 						<reference key="object" ref="135232881"/>
 						<reference key="parent" ref="269895535"/>
 						<string key="objectName">Menu Item - 15</string>
+					</object>
+					<object class="IBObjectRecord">
+						<int key="objectID">722</int>
+						<reference key="object" ref="886838559"/>
+						<reference key="parent" ref="269895535"/>
+					</object>
+					<object class="IBObjectRecord">
+						<int key="objectID">723</int>
+						<reference key="object" ref="703920838"/>
+						<reference key="parent" ref="269895535"/>
+						<string key="objectName">Menu Item - 30</string>
 					</object>
 				</array>
 			</object>
@@ -4354,6 +4391,8 @@ AAMAAAABAAEAAAFTAAMAAAAEAAAFwgAAAAAACAAIAAgACAABAAEAAQABA</bytes>
 				<string key="72.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="720.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="721.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
+				<string key="722.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
+				<string key="723.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="73.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="74.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
 				<string key="75.IBPluginDependency">com.apple.InterfaceBuilder.CocoaPlugin</string>
@@ -4369,7 +4408,7 @@ AAMAAAABAAEAAAFTAAMAAAAEAAAFwgAAAAAACAAIAAgACAABAAEAAQABA</bytes>
 			<nil key="activeLocalization"/>
 			<dictionary class="NSMutableDictionary" key="localizations"/>
 			<nil key="sourceID"/>
-			<int key="maxID">721</int>
+			<int key="maxID">723</int>
 		</object>
 		<object class="IBClassDescriber" key="IBDocument.Classes"/>
 		<int key="IBDocument.localizationMode">0</int>

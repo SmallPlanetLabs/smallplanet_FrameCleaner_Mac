@@ -49,6 +49,7 @@ extern NSInteger RunTask(NSString *launchPath, NSArray *arguments, NSString *wor
 - (NSData *) subtract:(FCImage*)other;
 - (CGSize) size;
 + (void) dumpData:(NSData*)data size:(CGSize)size;
+- (BOOL) compare:(FCImage*)other pixelsWithMin:(CGPoint)min andMax:(CGPoint)max;
 
 @end
 
@@ -469,6 +470,37 @@ extern NSInteger RunTask(NSString *launchPath, NSArray *arguments, NSString *wor
     }
     
     return NO;
+}
+
+- (BOOL) compare:(FCImage*)other pixelsWithMin:(CGPoint)min andMax:(CGPoint)max
+{
+    if([md5 isEqualToString:[other md5]])
+    {
+        return YES;
+    }
+    
+    int newWidth = max.x-min.x;
+    int newHeight = max.y-min.y;
+    
+    const unsigned char * basePtr = (const unsigned char *)[[self pixelData] bytes];
+    const unsigned char * basePtr2 = (const unsigned char *)[[other pixelData] bytes];
+    const unsigned char * ptr;
+    const unsigned char * ptr2;
+    
+    for(int y = min.y; y < min.y+newHeight; y++)
+    {
+        for(int x = min.x; x < min.x+newWidth; x++)
+        {
+            ptr = basePtr + (y * pixelsWide * samplesPerPixel) + (x * samplesPerPixel);
+            ptr2 = basePtr2 + (y * pixelsWide * samplesPerPixel) + (x * samplesPerPixel);
+            for (int i = 0; i < samplesPerPixel; i++)
+            {
+                if(abs(ptr[i] - ptr2[i]) > 20) return NO;
+            }
+        }
+    }
+
+    return YES;
 }
 
 - (NSData *) subtract:(FCImage*)other
@@ -1018,7 +1050,7 @@ int convertDecimalToBaseN(int a, int n)
 }
 
 #define SUBREGION_THRESHOLD 1
-#define SUBREGION_INSET -1
+#define SUBREGION_INSET -5
 #define MIN_POINTS_PER_SUBREGION 1
 #define AREA_THRESHOLD 1000
 #define EDGE_THRESHOLD 50
@@ -1467,10 +1499,11 @@ int convertDecimalToBaseN(int a, int n)
         
         FCRegion *region = nil;
         NSString *suffix = @"";
+        CGRect cropBounds;
         if (subregions)
         {
             region = [subregions objectAtIndex:currentRegion];
-            CGRect cropBounds = [region bounds];
+            cropBounds = [region bounds];
             CGSize imgSize = [firstImage size];
             globalMin.x = cropBounds.origin.x;
             globalMin.y = imgSize.height - cropBounds.origin.y - cropBounds.size.height;
@@ -1502,7 +1535,19 @@ int convertDecimalToBaseN(int a, int n)
                     for(FCImage * existingImage in uniqueImages)
                     {
                         @autoreleasepool {
-                            if([newImage compare:existingImage])
+                            
+                            if (subregions)
+                            {
+                                if ([newImage compare:existingImage pixelsWithMin:globalMin andMax:globalMax])
+                                {
+                                    NSLog(@"DUPLICATE: %@ and %@", [newImage.sourceFile lastPathComponent], [existingImage.sourceFile lastPathComponent]);
+                                    duplicateOfImage = existingImage;
+                                    [newImage dropMemory];
+                                    [existingImage dropMemory];
+                                    break;
+                                }
+                            }
+                            else if([newImage compare:existingImage])
                             {
                                 NSLog(@"DUPLICATE: %@ and %@", [newImage.sourceFile lastPathComponent], [existingImage.sourceFile lastPathComponent]);
                                 duplicateOfImage = existingImage;
@@ -1510,6 +1555,7 @@ int convertDecimalToBaseN(int a, int n)
                                 [existingImage dropMemory];
                                 break;
                             }
+                            
                             [newImage dropMemory];
                             [existingImage dropMemory];
                         }
@@ -1621,9 +1667,9 @@ int convertDecimalToBaseN(int a, int n)
         
         if(findSubregionsMax > 0)
         {
-            NSString *pathFormat = [NSString stringWithFormat:@"bundle://%@%@#", baseFileName, suffix];
+            NSString *pathFormat = [NSString stringWithFormat:@"%@%@#", baseFileName, suffix];
             pathFormat = [pathFormat stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
-            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t\t<FrameAnimation sequence=\"%@\" pathFormat=\"%@\" digits=\"4\" />\n\t</Image>\n", frameSequence, pathFormat];
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t\t<FrameAnimation looping=\"true\" sequence=\"%@\" pathFormat=\"bundle://%@\" digits=\"4\" />\n\t</Image>\n", frameSequence, pathFormat];
         }
         else if (gShouldRemoveDuplicates)
         {
