@@ -890,6 +890,7 @@ static NSUInteger random_below(NSUInteger n) {
 - (void) setBounds:(CGRect)_bounds;
 - (void) mergeWithRegion:(FCRegion *)region;
 - (void) reduceIfOverlaps:(FCRegion *)region;
+- (void) expandBoundsBy:(CGFloat)pixels toMaxSize:(CGSize)size;
 @end
 
 @implementation FCRegion
@@ -953,6 +954,18 @@ static NSUInteger random_below(NSUInteger n) {
 - (CGRect) bounds
 {
     return bounds;
+}
+
+- (void) expandBoundsBy:(CGFloat)pixels toMaxSize:(CGSize)size
+{
+    bounds.origin.x -= pixels;
+    bounds.origin.x = (bounds.origin.x < 0.f ? 0.f: bounds.origin.x);
+    bounds.origin.y -= pixels;
+    bounds.origin.y = (bounds.origin.y < 0.f ? 0.f: bounds.origin.y);
+    bounds.size.width += 2.f*pixels;
+    bounds.size.width = (bounds.size.width > size.width ? size.width : bounds.size.width);
+    bounds.size.height += 2.f*pixels;
+    bounds.size.height = (bounds.size.height > size.height ? size.height : bounds.size.height);
 }
 
 - (void) setBounds:(CGRect)_bounds;
@@ -1050,10 +1063,11 @@ int convertDecimalToBaseN(int a, int n)
 }
 
 #define SUBREGION_THRESHOLD 1
-#define SUBREGION_INSET -5
+#define SUBREGION_INSET -1
 #define MIN_POINTS_PER_SUBREGION 1
 #define AREA_THRESHOLD 1000
 #define EDGE_THRESHOLD 50
+#define SUBREGION_PADDING 1
 
 - (NSMutableArray *) computeMaxSubregions:(NSUInteger)max fromData:(NSData *)data ofSize:(CGSize)size
 {
@@ -1485,6 +1499,7 @@ int convertDecimalToBaseN(int a, int n)
         for (FCRegion *region in subregions)
         {
             [baseImage makeTransparentRect:[region bounds]];
+            [region expandBoundsBy:1.f toMaxSize:firstImage.size];
         }
         NSString *fileName = [baseFileName stringByAppendingString:@"base"];
         [self exportImage:baseImage toFileName:[exportDirectory stringByAppendingPathComponent:fileName] queue:queue withExportMatrix:[exportMatrix selectedRow]];
@@ -1510,7 +1525,7 @@ int convertDecimalToBaseN(int a, int n)
             globalMax.x = cropBounds.origin.x + cropBounds.size.width;
             globalMax.y = globalMin.y + cropBounds.size.height;
             suffix = [NSString stringWithFormat:@"region%02d_",currentRegion];
-            NSString *fileName = [baseFileName stringByAppendingString:suffix];
+            NSString *fileName = [baseFileName stringByAppendingFormat:@"%@0000",suffix];
             fileName = [fileName stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
             regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t<Image bounds=\"%d,%d,%d,%d\" urlPath=\"%@\">\n", (int)(cropBounds.origin.x), (int)(cropBounds.origin.y), (int)(cropBounds.size.width), (int)(cropBounds.size.height), [NSString stringWithFormat:@"bundle://%@",fileName]];
 
