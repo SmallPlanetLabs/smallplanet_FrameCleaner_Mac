@@ -1852,7 +1852,7 @@ int convertDecimalToBaseN(int a, int n)
         {
             NSString *pathFormat = [NSString stringWithFormat:@"%@%@#", baseFileName, suffix];
             pathFormat = [pathFormat stringByAppendingPathExtension:[self extensionForExportMatrix:[exportMatrix selectedRow]]];
-            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t\t<FrameAnimation looping=\"true\" sequence=\"%@\" pathFormat=\"bundle://%@\" digits=\"4\" />\n\t</Image>\n", frameSequence, pathFormat];
+            regionsSnippet = [regionsSnippet stringByAppendingFormat:@"\t\t<FrameAnimation framerate=\"12\" sequence=\"%@\" pathFormat=\"bundle://%@\" digits=\"4\" />\n\t</Image>\n", frameSequence, pathFormat];
         }
         else if (gShouldRemoveDuplicates)
         {
