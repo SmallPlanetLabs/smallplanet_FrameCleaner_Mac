@@ -1078,12 +1078,15 @@ int convertDecimalToBaseN(int a, int n)
 // regions with fewer than MIN_POINTS_PER_SUBREGION will be rejected. 1 means keep all
 #define MIN_POINTS_PER_SUBREGION 1
 // largest edge allowed when building small subregions
-#define EDGE_THRESHOLD 50
+#define EDGE_THRESHOLD 40
 // subregion padding to overlap the cropped images over the knocked out background, needed for proper rendering when scaled down
 #define SUBREGION_PADDING 1
 
+#define INSET(r) CGRectInset(r,2,2)
+
 - (NSMutableArray *) computeMaxSubregions:(NSUInteger)max fromData:(NSData *)data ofSize:(CGSize)size
 {
+    
     NSMutableArray *subregions = [NSMutableArray arrayWithCapacity:max];
     unsigned char *ptr = (unsigned char*)[data bytes];
 
@@ -1253,78 +1256,7 @@ int convertDecimalToBaseN(int a, int n)
     }
 
     // try to reduce area by looking for three overlapping intersections
-    reduce = [set count]-max;
-    loopmax = [set count]-1;
     FCRegion *newRegion = [[FCRegion alloc] init];
-    for (int c=0; c<loopmax; c++)
-    {
-        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
-        [allObjects shuffle];
-        for (FCRegion *r1 in allObjects)
-        {
-            for (int compare=0; compare < [allObjects count]; compare++)
-            {
-                FCRegion *r2 = [allObjects objectAtIndex:compare];
-                CGRect r12 = CGRectIntersection([r1 bounds], [r2 bounds]);
-                if (r1 != r2 && !CGRectIsEmpty(r12))
-                {
-                    for (int compare3=0; compare3 < [allObjects count]; compare3++)
-                    {
-                        FCRegion *r3 = [allObjects objectAtIndex:compare3];
-                        CGRect r312 = CGRectIntersection(CGRectInset([r3 bounds],-0.5,-0.5), CGRectInset(r12,-0.5,-0.5));
-                        if (r2 != r3 && r1 != r3 && !CGRectIsEmpty(r312))
-                        {
-                            CGRect bounds = [r1 bounds];
-                            CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
-                            CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
-                            CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
-                            CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
-                            
-                            if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p2)) || (CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p1)) )
-                            {
-                                CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
-                                CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
-                                CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
-                                CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
-                                [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
-                            }
-                            if ((CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p3)) )
-                            {
-                                CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
-                                CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
-                                CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
-                                CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
-                                [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
-                            }
-                            
-                            if ((CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p3)) || (CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p2)) )
-                            {
-                                CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
-                                CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
-                                CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
-                                CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
-                                [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
-                            }
-                            if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p1)) )
-                            {
-                                CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
-                                CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
-                                CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
-                                CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
-                                [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
-                            }
-
-                            [r1 reduceIfOverlaps:newRegion];
-                        }
-                    }
-                }
-            }
-        }
-    }
-    
-    // try to reduce area by chopping one-vertex overlapping
-    reduce = [set count]-max;
-    loopmax = [set count]-1;
     NSMutableArray *allObjects = [[set allObjects] mutableCopy];
     [allObjects shuffle];
     for (FCRegion *r1 in allObjects)
@@ -1335,24 +1267,99 @@ int convertDecimalToBaseN(int a, int n)
             CGRect r12 = CGRectIntersection([r1 bounds], [r2 bounds]);
             if (r1 != r2 && !CGRectIsEmpty(r12))
             {
+                for (int compare3=0; compare3 < [allObjects count]; compare3++)
+                {
+                    FCRegion *r3 = [allObjects objectAtIndex:compare3];
+                    CGRect r312 = CGRectIntersection(CGRectInset([r3 bounds],-0.5,-0.5), CGRectInset(r12,-0.5,-0.5));
+                    if (r2 != r3 && r1 != r3 && !CGRectIsEmpty(r312))
+                    {
+                        CGRect bounds = [r1 bounds];
+                        CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+                        CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
+                        CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
+                        CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+                        
+                        if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p2)) || (CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p1)) )
+                        {
+                            CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                            CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                            CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                            CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                            [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
+                        }
+                        else if ((CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p3)) )
+                        {
+                            CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                            CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                            CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                            CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                            [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
+                        }
+                        
+                        else if ((CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p3)) || (CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p2)) )
+                        {
+                            CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                            CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                            CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                            CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                            [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
+                        }
+                        else if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p1)) )
+                        {
+                            CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                            CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                            CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                            CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                            [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
+                        }
+
+                        [r1 reduceIfOverlaps:newRegion];
+                    }
+                }
+            }
+        }
+    }
+    
+    // try to reduce area by chopping one-vertex overlapping
+    allObjects = [[set allObjects] mutableCopy];
+    [allObjects shuffle];
+    for (FCRegion *r1 in allObjects)
+    {
+        for (int compare=0; compare < [allObjects count]; compare++)
+        {
+            FCRegion *r2 = [allObjects objectAtIndex:compare];
+            CGRect r12 = CGRectIntersection([r1 bounds], [r2 bounds]);
+            if (r1 != r2 && !CGRectIsEmpty(r12))
+            {
                 CGRect bounds = [r1 bounds];
-//                CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+                CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
                 CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
                 CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
-//                CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+                CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
                 
-                if (CGRectContainsPoint([r2 bounds], p2))
+                if (CGRectContainsPoint(INSET([r2 bounds]), p1))
+                {
+                    FCRegion *extraRegion = [[FCRegion alloc] init];
+                    CGPoint origin = CGPointMake(bounds.origin.x,bounds.origin.y+r12.size.height);
+                    extraRegion.bounds = CGRectMake(origin.x,origin.y,bounds.size.width,bounds.size.height-r12.size.height);
+                    [set addObject:extraRegion];
+                    [extraRegion release];
+                    bounds.size.height = r12.size.height;
+                    bounds.origin.x += r12.size.width;
+                    bounds.size.width -= r12.size.width;
+                    r1.bounds = bounds;
+                }
+                else if (CGRectContainsPoint(INSET([r2 bounds]), p2))
                 {
                     FCRegion *extraRegion = [[FCRegion alloc] init];
                     CGPoint origin = CGPointMake(bounds.origin.x+r12.size.width,[r2 bounds].origin.y);
                     extraRegion.bounds = CGRectMake(origin.x,origin.y,bounds.size.width-r12.size.width,r12.size.height);
                     [set addObject:extraRegion];
                     [extraRegion release];
-//                    bounds.origin.y += r12.size.width;
                     bounds.size.height -= r12.size.height;
                     r1.bounds = bounds;
                 }
-                if (CGRectContainsPoint([r2 bounds], p3))
+                else if (CGRectContainsPoint(INSET([r2 bounds]), p3))
                 {
                     FCRegion *extraRegion = [[FCRegion alloc] init];
                     CGPoint origin = CGPointMake(bounds.origin.x, r12.origin.y);
@@ -1360,6 +1367,17 @@ int convertDecimalToBaseN(int a, int n)
                     [set addObject:extraRegion];
                     [extraRegion release];
                     bounds.size.height -= r12.size.height;
+                    r1.bounds = bounds;
+                }
+                else if (CGRectContainsPoint(INSET([r2 bounds]), p4))
+                {
+                    FCRegion *extraRegion = [[FCRegion alloc] init];
+                    CGPoint origin = CGPointMake(bounds.origin.x, bounds.origin.y+r12.size.height);
+                    extraRegion.bounds = CGRectMake(origin.x,origin.y,bounds.size.width,bounds.size.height-r12.size.height);
+                    [set addObject:extraRegion];
+                    [extraRegion release];
+                    bounds.size.height = r12.size.height;
+                    bounds.size.width -= r12.size.width;
                     r1.bounds = bounds;
                 }
             }
