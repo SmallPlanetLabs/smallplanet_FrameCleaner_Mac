@@ -162,17 +162,20 @@ extern NSInteger RunTask(NSString *launchPath, NSArray *arguments, NSString *wor
         @autoreleasepool {
             
             unsigned char * bufferPtr = (unsigned char *)[pixels bytes];
+            BOOL hasAlpha = ((width * height * 4) == [pixels length]);
+            int samples = hasAlpha ? 4 : 3;
+            
             NSBitmapImageRep * bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&bufferPtr
                                                                                 pixelsWide:width
                                                                                 pixelsHigh:height
                                                                              bitsPerSample:8
-                                                                           samplesPerPixel:4
-                                                                                  hasAlpha:YES
+                                                                           samplesPerPixel:samples
+                                                                                  hasAlpha:hasAlpha
                                                                                   isPlanar:NO
                                                                             colorSpaceName:NSDeviceRGBColorSpace
                                                                               bitmapFormat:NSAlphaNonpremultipliedBitmapFormat
-                                                                               bytesPerRow:width*4
-                                                                              bitsPerPixel:32];
+                                                                               bytesPerRow:width*samples
+                                                                              bitsPerPixel:8*samples];
             
             NSData * pngData = [bitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]];
             
@@ -226,22 +229,25 @@ extern NSInteger RunTask(NSString *launchPath, NSArray *arguments, NSString *wor
         @autoreleasepool {
             
             unsigned char * bufferPtr = (unsigned char *)[pixels bytes];
+            BOOL hasAlpha = ((width * height * 4) == [pixels length]);
+            int samples = hasAlpha ? 4 : 3;
+            
             NSBitmapImageRep * bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&bufferPtr
                                                                                 pixelsWide:width
                                                                                 pixelsHigh:height
                                                                              bitsPerSample:8
-                                                                           samplesPerPixel:4
-                                                                                  hasAlpha:YES
+                                                                           samplesPerPixel:samples
+                                                                                  hasAlpha:hasAlpha
                                                                                   isPlanar:NO
                                                                             colorSpaceName:NSDeviceRGBColorSpace
                                                                               bitmapFormat:NSAlphaNonpremultipliedBitmapFormat
-                                                                               bytesPerRow:width*4
-                                                                              bitsPerPixel:32];
+                                                                               bytesPerRow:width*samples
+                                                                              bitsPerPixel:8*samples];
             
             NSData * pngData = [bitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]];
             
             [bitmap release];
-                        
+            
             [pngData writeToFile:ePath atomically:NO];
             
             // Run through PNG crush...
@@ -374,17 +380,20 @@ extern NSInteger RunTask(NSString *launchPath, NSArray *arguments, NSString *wor
         @autoreleasepool {
             
             unsigned char * bufferPtr = (unsigned char *)[pixels bytes];
+            BOOL hasAlpha = ((width * height * 4) == [pixels length]);
+            int samples = hasAlpha ? 4 : 3;
+            
             NSBitmapImageRep * bitmap = [[NSBitmapImageRep alloc] initWithBitmapDataPlanes:&bufferPtr
                                                                                 pixelsWide:width
                                                                                 pixelsHigh:height
                                                                              bitsPerSample:8
-                                                                           samplesPerPixel:4
-                                                                                  hasAlpha:YES
+                                                                           samplesPerPixel:samples
+                                                                                  hasAlpha:hasAlpha
                                                                                   isPlanar:NO
                                                                             colorSpaceName:NSDeviceRGBColorSpace
                                                                               bitmapFormat:NSAlphaNonpremultipliedBitmapFormat
-                                                                               bytesPerRow:width*4
-                                                                              bitsPerPixel:32];
+                                                                               bytesPerRow:width*samples
+                                                                              bitsPerPixel:8*samples];
             
             NSData * pngData = [bitmap representationUsingType:NSPNGFileType properties:[NSDictionary dictionary]];
             
@@ -1062,11 +1071,15 @@ int convertDecimalToBaseN(int a, int n)
     return k;
 }
 
-#define SUBREGION_THRESHOLD 1
+// SUBREGION_THRESHOLD compare stored difference of each pixel channel to this, if lower ignore the diff
+#define SUBREGION_THRESHOLD 0
+// SUBREGION_INSET (negative) expands the bounds of an existing rect when searching for determining if a point should be inside a region
 #define SUBREGION_INSET -1
+// regions with fewer than MIN_POINTS_PER_SUBREGION will be rejected. 1 means keep all
 #define MIN_POINTS_PER_SUBREGION 1
-#define AREA_THRESHOLD 1000
+// largest edge allowed when building small subregions
 #define EDGE_THRESHOLD 50
+// subregion padding to overlap the cropped images over the knocked out background, needed for proper rendering when scaled down
 #define SUBREGION_PADDING 1
 
 - (NSMutableArray *) computeMaxSubregions:(NSUInteger)max fromData:(NSData *)data ofSize:(CGSize)size
@@ -1079,7 +1092,7 @@ int convertDecimalToBaseN(int a, int n)
         for (int c=0; c<size.width; c++)
         {
             
-            if (abs(*ptr) + abs(*(ptr+1)) + abs(*(ptr+2)) + abs(*(ptr+3)) > SUBREGION_THRESHOLD)
+            if (abs(*ptr) +abs(*(ptr+1)) + abs(*(ptr+2)) + abs(*(ptr+3)) > SUBREGION_THRESHOLD)
             {
                 CGPoint point = CGPointMake(1.f*c,1.f*(size.height - r - 1));
                 CGFloat minArea = -1;
@@ -1115,50 +1128,56 @@ int convertDecimalToBaseN(int a, int n)
     NSMutableSet *set = [NSMutableSet setWithArray:subregions];
     
     // Initial pass through regions to find regions entirely contained in other regions
-    for (FCRegion *region in subregions)
-    {
-        if ([region numberOfPoints] < MIN_POINTS_PER_SUBREGION)
-        {
-            [set removeObject:region];
-        }
-        else
-        {
-            for (FCRegion *cregion in subregions)
-            {
-                if (cregion != region)
-                {
-                    if (CGRectContainsRect([cregion bounds], [region bounds]))
-                    {
-                        [set removeObject:region];
-                        break;
-                    }
-                }
-            }
-        }
-    }
+//    for (FCRegion *region in subregions)
+//    {
+//        if ([region numberOfPoints] < MIN_POINTS_PER_SUBREGION)
+//        {
+//            [set removeObject:region];
+//        }
+//        else
+//        {
+//            for (FCRegion *cregion in subregions)
+//            {
+//                if ([set containsObject:cregion] && [set containsObject:region] && cregion != region)
+//                {
+//                    if (CGRectContainsRect([cregion bounds], [region bounds]))
+//                    {
+//                        [set removeObject:region];
+//                        break;
+//                    }
+//                }
+//            }
+//        }
+//    }
     
     // Pass through regions to find some to combine that yield smaller areas
     int reduce = [set count]-max;
     int loopmax = [set count]-1;
-    for (int c=0; c<loopmax; c++)
-    {
-        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
-        [allObjects shuffle];
-        for (FCRegion *r1 in allObjects)
-        {
-            for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
-            {
-                FCRegion *r2 = [allObjects objectAtIndex:compare];
-                CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
-                CGFloat sumArea = [r1 area] + [r2 area];
-                if (sumArea > comboArea)
-                {
-                    [r1 mergeWithRegion:r2];
-                    [set removeObject:r2];
-                }
-            }
-        }
-    }
+//    for (int c=0; c<loopmax; c++)
+//    {
+//        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+//        [allObjects shuffle];
+//        for (FCRegion *r1 in allObjects)
+//        {
+//            if ([set containsObject:r1])
+//            {
+//                for (int compare=[allObjects indexOfObject:r1]+1; compare < [allObjects count]; compare++)
+//                {
+//                    FCRegion *r2 = [allObjects objectAtIndex:compare];
+//                    if ([set containsObject:r2])
+//                    {
+//                        CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
+//                        CGFloat sumArea = [r1 area] + [r2 area];
+//                        if (sumArea > comboArea)
+//                        {
+//                            [r1 mergeWithRegion:r2];
+//                            [set removeObject:r2];
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//    }
     
     // main optimization loop -- reduce to find the bare minimum
     reduce = [set count]-max;
@@ -1204,7 +1223,7 @@ int convertDecimalToBaseN(int a, int n)
                 FCRegion *r2 = [allObjects objectAtIndex:compare];
                 CGFloat comboArea = [r1 unionAreaWithBounds:[r2 bounds]];
                 CGFloat sumArea = [r1 area] + [r2 area];
-                if (sumArea > comboArea)
+                if ([set containsObject:r1] && [set containsObject:r2] && sumArea > comboArea)
                 {
                     [r1 mergeWithRegion:r2];
                     [set removeObject:r2];
@@ -1232,7 +1251,123 @@ int convertDecimalToBaseN(int a, int n)
             }
         }
     }
+
+    // try to reduce area by looking for three overlapping intersections
+    reduce = [set count]-max;
+    loopmax = [set count]-1;
+    FCRegion *newRegion = [[FCRegion alloc] init];
+    for (int c=0; c<loopmax; c++)
+    {
+        NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+        [allObjects shuffle];
+        for (FCRegion *r1 in allObjects)
+        {
+            for (int compare=0; compare < [allObjects count]; compare++)
+            {
+                FCRegion *r2 = [allObjects objectAtIndex:compare];
+                CGRect r12 = CGRectIntersection([r1 bounds], [r2 bounds]);
+                if (r1 != r2 && !CGRectIsEmpty(r12))
+                {
+                    for (int compare3=0; compare3 < [allObjects count]; compare3++)
+                    {
+                        FCRegion *r3 = [allObjects objectAtIndex:compare3];
+                        CGRect r312 = CGRectIntersection(CGRectInset([r3 bounds],-0.5,-0.5), CGRectInset(r12,-0.5,-0.5));
+                        if (r2 != r3 && r1 != r3 && !CGRectIsEmpty(r312))
+                        {
+                            CGRect bounds = [r1 bounds];
+                            CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+                            CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
+                            CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
+                            CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+                            
+                            if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p2)) || (CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p1)) )
+                            {
+                                CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                                CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                                CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                                CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                                [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
+                            }
+                            if ((CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p3)) )
+                            {
+                                CGFloat minmaxx = fminf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                                CGFloat maxminx = fmaxf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                                CGFloat miny = fminf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                                CGFloat maxy = fmaxf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                                [newRegion setBounds:CGRectMake(maxminx, miny, minmaxx-maxminx, maxy-miny)];
+                            }
+                            
+                            if ((CGRectContainsPoint([r2 bounds], p2) && CGRectContainsPoint([r3 bounds], p3)) || (CGRectContainsPoint([r2 bounds], p3) && CGRectContainsPoint([r3 bounds], p2)) )
+                            {
+                                CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                                CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                                CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                                CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                                [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
+                            }
+                            if ((CGRectContainsPoint([r2 bounds], p1) && CGRectContainsPoint([r3 bounds], p4)) || (CGRectContainsPoint([r2 bounds], p4) && CGRectContainsPoint([r3 bounds], p1)) )
+                            {
+                                CGFloat minmaxy = fminf(CGRectGetMaxY([r2 bounds]),CGRectGetMaxY([r3 bounds]));
+                                CGFloat maxminy = fmaxf(CGRectGetMinY([r2 bounds]),CGRectGetMinY([r3 bounds]));
+                                CGFloat minx = fminf(CGRectGetMinX([r2 bounds]),CGRectGetMinX([r3 bounds]));
+                                CGFloat maxx = fmaxf(CGRectGetMaxX([r2 bounds]),CGRectGetMaxX([r3 bounds]));
+                                [newRegion setBounds:CGRectMake(minx, maxminy, maxx-minx, minmaxy-maxminy)];
+                            }
+
+                            [r1 reduceIfOverlaps:newRegion];
+                        }
+                    }
+                }
+            }
+        }
+    }
     
+    // try to reduce area by chopping one-vertex overlapping
+    reduce = [set count]-max;
+    loopmax = [set count]-1;
+    NSMutableArray *allObjects = [[set allObjects] mutableCopy];
+    [allObjects shuffle];
+    for (FCRegion *r1 in allObjects)
+    {
+        for (int compare=0; compare < [allObjects count]; compare++)
+        {
+            FCRegion *r2 = [allObjects objectAtIndex:compare];
+            CGRect r12 = CGRectIntersection([r1 bounds], [r2 bounds]);
+            if (r1 != r2 && !CGRectIsEmpty(r12))
+            {
+                CGRect bounds = [r1 bounds];
+//                CGPoint p1 = CGPointMake(bounds.origin.x, bounds.origin.y);
+                CGPoint p2 = CGPointMake(bounds.origin.x, bounds.origin.y + bounds.size.height);
+                CGPoint p3 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y + bounds.size.height);
+//                CGPoint p4 = CGPointMake(bounds.origin.x + bounds.size.width, bounds.origin.y);
+                
+                if (CGRectContainsPoint([r2 bounds], p2))
+                {
+                    FCRegion *extraRegion = [[FCRegion alloc] init];
+                    CGPoint origin = CGPointMake(bounds.origin.x+r12.size.width,[r2 bounds].origin.y);
+                    extraRegion.bounds = CGRectMake(origin.x,origin.y,bounds.size.width-r12.size.width,r12.size.height);
+                    [set addObject:extraRegion];
+                    [extraRegion release];
+//                    bounds.origin.y += r12.size.width;
+                    bounds.size.height -= r12.size.height;
+                    r1.bounds = bounds;
+                }
+                if (CGRectContainsPoint([r2 bounds], p3))
+                {
+                    FCRegion *extraRegion = [[FCRegion alloc] init];
+                    CGPoint origin = CGPointMake(bounds.origin.x, r12.origin.y);
+                    extraRegion.bounds = CGRectMake(origin.x,origin.y,bounds.size.width-r12.size.width,r12.size.height);
+                    [set addObject:extraRegion];
+                    [extraRegion release];
+                    bounds.size.height -= r12.size.height;
+                    r1.bounds = bounds;
+                }
+            }
+        }
+    }
+
+    [newRegion release];
+
     return [NSMutableArray arrayWithArray:[set allObjects]];
 }
 
@@ -1322,7 +1457,7 @@ int convertDecimalToBaseN(int a, int n)
     [transWindow startProgressBarWithMessage:@"Initializing Process"];
     
     queue = [[NSOperationQueue alloc] init];
-    queue.maxConcurrentOperationCount = 8;
+    queue.maxConcurrentOperationCount = 1;
 
     NSMutableArray * allFiles = [NSMutableArray arrayWithArray:[[NSFileManager defaultManager] contentsOfDirectoryAtPath:sourceDirectory error:NULL]];
     
@@ -1413,8 +1548,12 @@ int convertDecimalToBaseN(int a, int n)
                             
                             for(int i=0; i<[subregionData length]; i++)
                             {
-                                NSUInteger sum = *ptr1 + *ptr2;
-                                *ptr1 = (sum > 255 ? 255 : sum);
+                                if (*ptr2 > *ptr1)
+                                {
+                                    *ptr1 = *ptr2;
+                                }
+//                                NSUInteger sum = *ptr1 + *ptr2;
+//                                *ptr1 = (sum > 255 ? 255 : sum);
                                 ptr1++;
                                 ptr2++;
                             }
@@ -1449,8 +1588,7 @@ int convertDecimalToBaseN(int a, int n)
         NSImageView *imageView = [[NSImageView alloc] initWithFrame:imageBounds];
         NSImage *image = [[NSImage alloc ] initByReferencingFile:firstImage.sourceFile];
         imageView.image = image;
-
-        [win.contentView addSubview:imageView];
+        imageView.tag = 314;
 
         [FCImage dumpData:subregionData size:[firstImage size]];
         subregions = [self computeMaxSubregions:findSubregionsMax fromData:subregionData ofSize:[firstImage size]];
@@ -1465,7 +1603,10 @@ int convertDecimalToBaseN(int a, int n)
             NSRect vbounds = NSMakeRect(rbounds.origin.x*scale, rbounds.origin.y*scale, rbounds.size.width*scale, rbounds.size.height*scale);
             NSView *view = [[NSView alloc] initWithFrame:vbounds];
             CALayer *viewLayer = [CALayer layer];
+
             [viewLayer setBackgroundColor:CGColorCreateGenericRGB(0.8, 0.0, 0.0, 0.4)];
+            viewLayer.borderColor = CGColorCreateGenericRGB(0.4, 0.f, 0.f, 0.8);
+            viewLayer.borderWidth = 1.f;
             [view setWantsLayer:YES];
             [view setLayer:viewLayer];
             [imageView addSubview:view];
@@ -1473,6 +1614,7 @@ int convertDecimalToBaseN(int a, int n)
         }
         NSLog(@"total area %.0f px^2 from %d regions", totalArea, [subregions count]);
         [win setTitle:[NSString stringWithFormat:@"%.0f sqpx in %d regions", totalArea, [subregions count]]];
+        [win.contentView addSubview:imageView];
         [win makeKeyAndOrderFront:[NSApplication sharedApplication]];
 
     }
@@ -1536,9 +1678,17 @@ int convertDecimalToBaseN(int a, int n)
         
         for(FCImage * newImage in allImages)
         {
-            @autoreleasepool {            
-                [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Processing %@", [newImage.sourceFile lastPathComponent]]
-                                              withValue:((float)imageIndex/(float)[allFiles count])];
+            @autoreleasepool {
+                if (subregions)
+                {
+                    [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Region %d/%d %@", currentRegion, [subregions count], [newImage.sourceFile lastPathComponent]]
+                                                  withValue:((float)imageIndex/(float)[allFiles count])];
+                }
+                else
+                {
+                    [transWindow continueProgressBarMessage:[NSString stringWithFormat:@"Processing %@", [newImage.sourceFile lastPathComponent]]
+                                                  withValue:((float)imageIndex/(float)[allFiles count])];
+                }
         
                 FCImage * duplicateOfImage = NULL;
                 
