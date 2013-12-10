@@ -42,6 +42,7 @@
 		46EA31A61754E9740078F94E /* lz4.c in Sources */ = {isa = PBXBuildFile; fileRef = 46EA31A21754E9740078F94E /* lz4.c */; };
 		46F9497817978CA000FCE42B /* pngquant in Resources */ = {isa = PBXBuildFile; fileRef = 46F9497717978CA000FCE42B /* pngquant */; };
 		46F9497A17978EB500FCE42B /* pngnq in Resources */ = {isa = PBXBuildFile; fileRef = 46F9497917978EB500FCE42B /* pngnq */; };
+		A976E75C18579E4200A748C1 /* libpng15.15.dylib in Resources */ = {isa = PBXBuildFile; fileRef = A976E75A18579E3100A748C1 /* libpng15.15.dylib */; };
 		C4273F3017B9ADB000F0C4F2 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
@@ -109,6 +110,7 @@
 		46F9497717978CA000FCE42B /* pngquant */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = pngquant; sourceTree = SOURCE_ROOT; };
 		46F9497917978EB500FCE42B /* pngnq */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.executable"; path = pngnq; sourceTree = SOURCE_ROOT; };
 		A96912A717B2F7FC00739D28 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
+		A976E75A18579E3100A748C1 /* libpng15.15.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; path = libpng15.15.dylib; sourceTree = "<group>"; };
 		C4273F2F17B9ADB000F0C4F2 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
@@ -195,6 +197,7 @@
 				46F9497717978CA000FCE42B /* pngquant */,
 				46A50BEF178F568200D4D9CB /* pngcrush */,
 				4662F01B173894BB002A5B03 /* texturetool */,
+				A976E75A18579E3100A748C1 /* libpng15.15.dylib */,
 				4634344917381D19000AFABE /* FrameCleaner-Info.plist */,
 				4634344A17381D19000AFABE /* InfoPlist.strings */,
 				4634344D17381D19000AFABE /* main.m */,
@@ -321,6 +324,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A976E75C18579E4200A748C1 /* libpng15.15.dylib in Resources */,
 				4634344C17381D19000AFABE /* InfoPlist.strings in Resources */,
 				4634345217381D19000AFABE /* Credits.rtf in Resources */,
 				4634345817381D1A000AFABE /* MainMenu.xib in Resources */,
@@ -464,7 +468,8 @@
 				INFOPLIST_FILE = "FrameCleaner/FrameCleaner-Info.plist";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/FrameCleaner/PVR\"/**",
+					"\\\"$(SRCROOT)/FrameCleaner/PVR\\\"/**",
+					/Users/quinnmchenry/Development/FrameCleaner/FrameCleaner,
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
@@ -480,7 +485,8 @@
 				INFOPLIST_FILE = "FrameCleaner/FrameCleaner-Info.plist";
 				LIBRARY_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"$(SRCROOT)/FrameCleaner/PVR\"/**",
+					"\\\"$(SRCROOT)/FrameCleaner/PVR\\\"/**",
+					/Users/quinnmchenry/Development/FrameCleaner/FrameCleaner,
 				);
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				WRAPPER_EXTENSION = app;
